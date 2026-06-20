@@ -1,4 +1,4 @@
-# app.py - Predicción Mundial 2026 con Streamlit
+# app.py - Versión optimizada (sin dependencia obligatoria de pymc)
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,6 +11,16 @@ import os
 # Suprimir warnings
 warnings.filterwarnings('ignore')
 
+# Intentar importar pymc opcionalmente
+try:
+    import pymc as pm
+    import arviz as az
+    PYMC_AVAILABLE = True
+except ImportError:
+    PYMC_AVAILABLE = False
+    pm = None
+    az = None
+
 # Configuración de la página
 st.set_page_config(
     page_title="Predicción Mundial 2026",
@@ -21,6 +31,10 @@ st.set_page_config(
 
 st.title("⚽ Predicción de Marcadores - Mundial FIFA 2026")
 st.markdown("---")
+
+# Mostrar advertencia si pymc no está disponible
+if not PYMC_AVAILABLE:
+    st.warning("ℹ️ El modelo Bayesiano no está disponible en esta versión. Solo se usará XGBoost.")
 
 # ============================================================================
 # SIDEBAR - Configuración
@@ -96,8 +110,11 @@ with st.sidebar:
     
     # Opciones avanzadas
     with st.expander("⚡ Opciones avanzadas"):
-        use_bayesian = st.checkbox("Entrenar modelo Bayesiano", value=True)
         use_xgboost = st.checkbox("Entrenar modelo XGBoost", value=True)
+        use_bayesian = st.checkbox("Entrenar modelo Bayesiano", value=PYMC_AVAILABLE)
+        if not PYMC_AVAILABLE:
+            use_bayesian = False
+            st.caption("⚠️ Bayesiano no disponible")
         max_goals_display = st.slider("Máximo de goles a mostrar", 4, 10, 7)
     
     st.markdown("---")
@@ -110,10 +127,10 @@ with st.sidebar:
 # ============================================================================
 def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8):
     """Entrena el modelo Bayesiano y retorna predicciones"""
+    if not PYMC_AVAILABLE:
+        return None, None, None, None, None
+    
     try:
-        import pymc as pm
-        import arviz as az
-        
         home_idx = train.home_team.map(team_idx).values
         away_idx = train.away_team.map(team_idx).values
         home_goals = train.home_score.values
@@ -139,7 +156,6 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
             pm.Poisson("home_goals_obs", mu=pm.math.exp(log_theta_home), observed=home_goals)
             pm.Poisson("away_goals_obs", mu=pm.math.exp(log_theta_away), observed=away_goals)
             
-            # Usar muestreo más rápido para la web
             idata = pm.sample(draws=500, tune=500, chains=2, cores=1, 
                             random_seed=42, target_accept=0.85, 
                             progressbar=False, return_inferencedata=True)
@@ -389,21 +405,6 @@ if predict_btn:
     # Inicializar resultados
     results = {}
     
-    # Entrenar modelo Bayesiano
-    if use_bayesian:
-        with st.spinner("⚙️ Entrenando modelo Bayesiano (puede tomar 1-2 minutos)..."):
-            sm_bayes, lam_h_bayes, lam_a_bayes, att_ratings, def_ratings = train_bayesian_model(
-                train, teams, team_idx, home_team, away_team, max_goals_display
-            )
-            if sm_bayes is not None:
-                results['bayes'] = {
-                    'score_matrix': sm_bayes,
-                    'lam_h': lam_h_bayes,
-                    'lam_a': lam_a_bayes,
-                    'att_ratings': att_ratings,
-                    'def_ratings': def_ratings
-                }
-    
     # Entrenar modelo XGBoost
     if use_xgboost:
         with st.spinner("⚙️ Entrenando modelo XGBoost..."):
@@ -418,6 +419,21 @@ if predict_btn:
                     'lam_h': lam_h_xgb,
                     'lam_a': lam_a_xgb,
                     'team_stats': team_stats
+                }
+    
+    # Entrenar modelo Bayesiano (si está disponible)
+    if use_bayesian and PYMC_AVAILABLE:
+        with st.spinner("⚙️ Entrenando modelo Bayesiano (puede tomar 1-2 minutos)..."):
+            sm_bayes, lam_h_bayes, lam_a_bayes, att_ratings, def_ratings = train_bayesian_model(
+                train, teams, team_idx, home_team, away_team, max_goals_display
+            )
+            if sm_bayes is not None:
+                results['bayes'] = {
+                    'score_matrix': sm_bayes,
+                    'lam_h': lam_h_bayes,
+                    'lam_a': lam_a_bayes,
+                    'att_ratings': att_ratings,
+                    'def_ratings': def_ratings
                 }
     
     # Guardar resultados
@@ -440,7 +456,8 @@ if 'results' in st.session_state and st.session_state.results:
     st.subheader("📊 Resumen de Predicción")
     
     # Crear columnas para métricas
-    cols = st.columns(min(len(results), 4))
+    model_count = len([m for m in results.keys() if m != 'teams'])
+    cols = st.columns(min(model_count, 4))
     
     col_idx = 0
     for model_name, model_data in results.items():
@@ -459,7 +476,7 @@ if 'results' in st.session_state and st.session_state.results:
     st.markdown("---")
     
     # Mostrar modelos en columnas
-    model_cols = st.columns(len([m for m in results.keys() if m != 'teams']))
+    model_cols = st.columns(model_count)
     col_idx = 0
     
     for model_name, model_data in results.items():
@@ -467,13 +484,14 @@ if 'results' in st.session_state and st.session_state.results:
             continue
         
         with model_cols[col_idx % len(model_cols)]:
-            st.subheader(f"🔵 {model_name.capitalize()}")
+            display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
+            st.subheader(display_name)
             
             # Mostrar gráfico
             fig = plot_results(
                 model_data['score_matrix'],
                 home_team, away_team,
-                model_name.capitalize(),
+                display_name,
                 max_display=7
             )
             st.pyplot(fig)
@@ -493,11 +511,37 @@ if 'results' in st.session_state and st.session_state.results:
             # Top marcador
             top_idx = np.unravel_index(model_data['score_matrix'][:7,:7].argmax(), (7,7))
             st.info(f"🎯 Marcador más probable: **{top_idx[0]}-{top_idx[1]}**")
+            
+            # Mostrar estadísticas adicionales para XGBoost
+            if model_name == 'xgb' and 'team_stats' in model_data:
+                with st.expander("📈 Estadísticas de los equipos"):
+                    stats_data = []
+                    for team, stats in model_data['team_stats'].items():
+                        stats_data.append({
+                            "Equipo": team,
+                            "Elo": f"{stats['elo']:.0f}",
+                            "GF (últ 10)": f"{stats['gf10']:.2f}",
+                            "GC (últ 10)": f"{stats['ga10']:.2f}",
+                            "Pts (últ 5)": f"{stats['form5']:.0f}"
+                        })
+                    st.dataframe(pd.DataFrame(stats_data), hide_index=True, use_container_width=True)
+            
+            # Mostrar ratings Bayesianos
+            if model_name == 'bayes' and 'att_ratings' in model_data:
+                with st.expander("📊 Ratings Ataque/Defensa (Bayesiano)"):
+                    ratings_data = []
+                    for team in [home_team, away_team]:
+                        ratings_data.append({
+                            "Equipo": team,
+                            "Ataque": f"{model_data['att_ratings'][team]:.3f}",
+                            "Defensa": f"{model_data['def_ratings'][team]:.3f}"
+                        })
+                    st.dataframe(pd.DataFrame(ratings_data), hide_index=True, use_container_width=True)
         
         col_idx += 1
     
-    # Tabla comparativa
-    if len(results) > 2:  # Si hay más de un modelo
+    # Tabla comparativa si hay más de un modelo
+    if model_count > 1:
         st.markdown("---")
         st.subheader("📋 Comparativa de Modelos")
         
@@ -508,7 +552,7 @@ if 'results' in st.session_state and st.session_state.results:
             sm = model_data['score_matrix'][:7, :7]
             top_idx = np.unravel_index(sm.argmax(), sm.shape)
             comp_data.append({
-                "Modelo": model_name.capitalize(),
+                "Modelo": "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost",
                 f"Goles {home_team[:10]}": f"{model_data['lam_h']:.2f}",
                 f"Goles {away_team[:10]}": f"{model_data['lam_a']:.2f}",
                 "Top marcador": f"{top_idx[0]}-{top_idx[1]}",
@@ -523,3 +567,8 @@ if 'results' in st.session_state and st.session_state.results:
 # ============================================================================
 st.markdown("---")
 st.caption("⚽ Datos: martj42/international_results | Modelos: Bayesiano Jerárquico & XGBoost | Desarrollado con ❤️ para el Mundial 2026")
+
+# Mostrar información de versión
+with st.expander("ℹ️ Información del sistema"):
+    st.write(f"Python: {sys.version}")
+    st.write(f"PyMC disponible: {PYMC_AVAILABLE}")
