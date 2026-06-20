@@ -1,4 +1,4 @@
-# app.py - Predicción Mundial 2026 con ambos modelos para Python 3.11
+# app.py - Predicción Mundial 2026 - VERSIÓN CORREGIDA
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,30 +6,9 @@ import matplotlib.pyplot as plt
 from scipy.stats import poisson
 import warnings
 import sys
-import os
 import platform
 
-# Suprimir warnings
-warnings.filterwarnings('ignore')
-
-# Verificar versión de Python
-python_version = sys.version_info
-if python_version.major == 3 and python_version.minor >= 12:
-    st.warning(f"⚠️ Estás usando Python {python_version.major}.{python_version.minor}. Algunos modelos pueden no funcionar correctamente. Se recomienda Python 3.11")
-
-# Intentar importar pymc
-try:
-    import pymc as pm
-    import arviz as az
-    PYMC_AVAILABLE = True
-    st.sidebar.success("✅ PyMC disponible")
-except ImportError as e:
-    PYMC_AVAILABLE = False
-    pm = None
-    az = None
-    st.sidebar.warning("⚠️ PyMC no disponible - solo XGBoost")
-
-# Configuración de la página
+# ⚠️ IMPORTANTE: set_page_config DEBE SER LA PRIMERA INSTRUCCIÓN DE STREAMLIT
 st.set_page_config(
     page_title="Predicción Mundial 2026",
     page_icon="⚽",
@@ -37,9 +16,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Suprimir warnings
+warnings.filterwarnings('ignore')
+
+# Verificar versión de Python
+python_version = sys.version_info
+
+# Intentar importar pymc
+try:
+    import pymc as pm
+    import arviz as az
+    PYMC_AVAILABLE = True
+except ImportError:
+    PYMC_AVAILABLE = False
+    pm = None
+    az = None
+
+# Título de la app
 st.title("⚽ Predicción de Marcadores - Mundial FIFA 2026")
 st.markdown(f"🐍 Python {sys.version.split()[0]} | PyMC: {'✅' if PYMC_AVAILABLE else '❌'}")
 st.markdown("---")
+
+# Mostrar advertencia si pymc no está disponible
+if not PYMC_AVAILABLE:
+    st.info("ℹ️ El modelo Bayesiano no está disponible en esta versión. Solo se usará XGBoost.")
 
 # ============================================================================
 # SIDEBAR - Configuración
@@ -122,7 +122,7 @@ with st.sidebar:
                                value=PYMC_AVAILABLE, disabled=not PYMC_AVAILABLE)
     
     if not PYMC_AVAILABLE:
-        st.caption("💡 Para activar el modelo Bayesiano, usa Python 3.11")
+        st.caption("💡 Para activar el modelo Bayesiano, usa Python 3.11 con pymc instalado")
     
     max_goals_display = st.slider("Máximo de goles a mostrar", 4, 10, 7)
     
@@ -323,7 +323,7 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8):
         
         return score_matrix, lam_h, lam_a, team_stats
     except Exception as e:
-        st.warning(f"⚠️ El modelo XGBoost no pudo entrenarse: {str(e)}")
+        st.error(f"❌ Error en XGBoost: {str(e)}")
         return None, None, None, None
 
 def plot_results(sm, home_team, away_team, title, max_display=7):
