@@ -1,4 +1,4 @@
-# app.py - Versión optimizada (sin dependencia obligatoria de pymc)
+# app.py - Predicción Mundial 2026 con ambos modelos para Python 3.11
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,19 +7,27 @@ from scipy.stats import poisson
 import warnings
 import sys
 import os
+import platform
 
 # Suprimir warnings
 warnings.filterwarnings('ignore')
 
-# Intentar importar pymc opcionalmente
+# Verificar versión de Python
+python_version = sys.version_info
+if python_version.major == 3 and python_version.minor >= 12:
+    st.warning(f"⚠️ Estás usando Python {python_version.major}.{python_version.minor}. Algunos modelos pueden no funcionar correctamente. Se recomienda Python 3.11")
+
+# Intentar importar pymc
 try:
     import pymc as pm
     import arviz as az
     PYMC_AVAILABLE = True
-except ImportError:
+    st.sidebar.success("✅ PyMC disponible")
+except ImportError as e:
     PYMC_AVAILABLE = False
     pm = None
     az = None
+    st.sidebar.warning("⚠️ PyMC no disponible - solo XGBoost")
 
 # Configuración de la página
 st.set_page_config(
@@ -30,11 +38,8 @@ st.set_page_config(
 )
 
 st.title("⚽ Predicción de Marcadores - Mundial FIFA 2026")
+st.markdown(f"🐍 Python {sys.version.split()[0]} | PyMC: {'✅' if PYMC_AVAILABLE else '❌'}")
 st.markdown("---")
-
-# Mostrar advertencia si pymc no está disponible
-if not PYMC_AVAILABLE:
-    st.warning("ℹ️ El modelo Bayesiano no está disponible en esta versión. Solo se usará XGBoost.")
 
 # ============================================================================
 # SIDEBAR - Configuración
@@ -108,14 +113,18 @@ with st.sidebar:
         index=0
     )
     
-    # Opciones avanzadas
-    with st.expander("⚡ Opciones avanzadas"):
-        use_xgboost = st.checkbox("Entrenar modelo XGBoost", value=True)
-        use_bayesian = st.checkbox("Entrenar modelo Bayesiano", value=PYMC_AVAILABLE)
-        if not PYMC_AVAILABLE:
-            use_bayesian = False
-            st.caption("⚠️ Bayesiano no disponible")
-        max_goals_display = st.slider("Máximo de goles a mostrar", 4, 10, 7)
+    st.markdown("---")
+    st.subheader("🤖 Modelos a usar")
+    
+    # Opciones de modelos
+    use_xgboost = st.checkbox("✅ XGBoost", value=True)
+    use_bayesian = st.checkbox("✅ Bayesiano" if PYMC_AVAILABLE else "❌ Bayesiano (no disponible)", 
+                               value=PYMC_AVAILABLE, disabled=not PYMC_AVAILABLE)
+    
+    if not PYMC_AVAILABLE:
+        st.caption("💡 Para activar el modelo Bayesiano, usa Python 3.11")
+    
+    max_goals_display = st.slider("Máximo de goles a mostrar", 4, 10, 7)
     
     st.markdown("---")
     
@@ -156,6 +165,7 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
             pm.Poisson("home_goals_obs", mu=pm.math.exp(log_theta_home), observed=home_goals)
             pm.Poisson("away_goals_obs", mu=pm.math.exp(log_theta_away), observed=away_goals)
             
+            # Muestreo más rápido para la web
             idata = pm.sample(draws=500, tune=500, chains=2, cores=1, 
                             random_seed=42, target_accept=0.85, 
                             progressbar=False, return_inferencedata=True)
@@ -404,45 +414,58 @@ if predict_btn:
     
     # Inicializar resultados
     results = {}
+    errores = []
     
     # Entrenar modelo XGBoost
     if use_xgboost:
-        with st.spinner("⚙️ Entrenando modelo XGBoost..."):
-            hist = raw[(raw.date <= CUTOFF) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
-            hist = hist[hist.date >= train_start].copy()
-            sm_xgb, lam_h_xgb, lam_a_xgb, team_stats = train_xgboost_model(
-                hist, raw, home_team, away_team, max_goals_display
-            )
-            if sm_xgb is not None:
-                results['xgb'] = {
-                    'score_matrix': sm_xgb,
-                    'lam_h': lam_h_xgb,
-                    'lam_a': lam_a_xgb,
-                    'team_stats': team_stats
-                }
+        try:
+            with st.spinner("⚙️ Entrenando modelo XGBoost..."):
+                hist = raw[(raw.date <= CUTOFF) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
+                hist = hist[hist.date >= train_start].copy()
+                sm_xgb, lam_h_xgb, lam_a_xgb, team_stats = train_xgboost_model(
+                    hist, raw, home_team, away_team, max_goals_display
+                )
+                if sm_xgb is not None:
+                    results['xgb'] = {
+                        'score_matrix': sm_xgb,
+                        'lam_h': lam_h_xgb,
+                        'lam_a': lam_a_xgb,
+                        'team_stats': team_stats
+                    }
+                else:
+                    errores.append("XGBoost no pudo entrenarse")
+        except Exception as e:
+            errores.append(f"XGBoost: {str(e)[:100]}")
     
-    # Entrenar modelo Bayesiano (si está disponible)
+    # Entrenar modelo Bayesiano
     if use_bayesian and PYMC_AVAILABLE:
-        with st.spinner("⚙️ Entrenando modelo Bayesiano (puede tomar 1-2 minutos)..."):
-            sm_bayes, lam_h_bayes, lam_a_bayes, att_ratings, def_ratings = train_bayesian_model(
-                train, teams, team_idx, home_team, away_team, max_goals_display
-            )
-            if sm_bayes is not None:
-                results['bayes'] = {
-                    'score_matrix': sm_bayes,
-                    'lam_h': lam_h_bayes,
-                    'lam_a': lam_a_bayes,
-                    'att_ratings': att_ratings,
-                    'def_ratings': def_ratings
-                }
+        try:
+            with st.spinner("⚙️ Entrenando modelo Bayesiano (puede tomar 1-2 minutos)..."):
+                sm_bayes, lam_h_bayes, lam_a_bayes, att_ratings, def_ratings = train_bayesian_model(
+                    train, teams, team_idx, home_team, away_team, max_goals_display
+                )
+                if sm_bayes is not None:
+                    results['bayes'] = {
+                        'score_matrix': sm_bayes,
+                        'lam_h': lam_h_bayes,
+                        'lam_a': lam_a_bayes,
+                        'att_ratings': att_ratings,
+                        'def_ratings': def_ratings
+                    }
+                else:
+                    errores.append("Bayesiano no pudo entrenarse")
+        except Exception as e:
+            errores.append(f"Bayesiano: {str(e)[:100]}")
     
     # Guardar resultados
     if results:
         results['teams'] = (home_team, away_team)
         st.session_state.results = results
         st.success("✅ Predicción completada!")
+        if errores:
+            st.warning(f"⚠️ Algunos modelos fallaron: {', '.join(errores)}")
     else:
-        st.error("❌ No se pudo completar ninguna predicción. Revisa los logs para más detalles.")
+        st.error(f"❌ No se pudo completar ninguna predicción. Errores: {', '.join(errores)}")
 
 # ============================================================================
 # MOSTRAR RESULTADOS
@@ -464,8 +487,9 @@ if 'results' in st.session_state and st.session_state.results:
         if model_name == 'teams':
             continue
         with cols[col_idx % len(cols)]:
+            display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
             st.metric(
-                f"🏠 {home_team[:10]} ({model_name})",
+                f"🏠 {home_team[:10]} ({display_name})",
                 f"{model_data['lam_h']:.2f}",
                 delta=f"vs {away_team[:10]} {model_data['lam_a']:.2f}",
                 delta_color="off"
@@ -568,7 +592,11 @@ if 'results' in st.session_state and st.session_state.results:
 st.markdown("---")
 st.caption("⚽ Datos: martj42/international_results | Modelos: Bayesiano Jerárquico & XGBoost | Desarrollado con ❤️ para el Mundial 2026")
 
-# Mostrar información de versión
+# Mostrar información de sistema en expander
 with st.expander("ℹ️ Información del sistema"):
-    st.write(f"Python: {sys.version}")
-    st.write(f"PyMC disponible: {PYMC_AVAILABLE}")
+    st.write(f"**Python:** {sys.version}")
+    st.write(f"**PyMC disponible:** {'✅ Sí' if PYMC_AVAILABLE else '❌ No'}")
+    st.write(f"**Plataforma:** {platform.platform()}")
+    if PYMC_AVAILABLE:
+        st.write(f"**PyMC versión:** {pm.__version__}")
+        st.write(f"**ArviZ versión:** {az.__version__}")
