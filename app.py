@@ -682,7 +682,7 @@ if 'results' in st.session_state and st.session_state.results:
             sm = model_data['score_matrix'][:7, :7]
             top_idx = np.unravel_index(sm.argmax(), sm.shape)
             comp_data.append({
-                "Modelo": "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost",
+                "Modelo": "🔵 Bayesiano (CHSM Ballesperros XD)" if model_name == 'bayes' else "🟢 XGBoost",
                 f"Goles {home_team[:10]}": f"{model_data['lam_h']:.2f}",
                 f"Goles {away_team[:10]}": f"{model_data['lam_a']:.2f}",
                 "Top marcador": f"{top_idx[0]}-{top_idx[1]}",
