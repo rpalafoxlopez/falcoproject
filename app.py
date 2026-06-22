@@ -73,8 +73,11 @@ st.markdown("""
             ) !important;
         border-right: 1px solid rgba(255, 255, 255, 0.03);
     }
-    [data-testid="stSidebar"] .stMarkdown , 
-    [data-testid="stSidebar"] .st-b6 {
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stCaption
+    {
         color: var(--text-secondary);
     }
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
