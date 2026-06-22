@@ -949,7 +949,7 @@ if 'results' in st.session_state and st.session_state.results:
 # FOOTER
 # ============================================================================
 st.markdown("---")
-st.caption(" Creado con ⚽ por <a href="https://satohachi.rpalafox.com/">rpalafox.com</a> ")
+st.caption(" Creado con ⚽ por [rpalafox.com](https://satohachi.rpalafox.com/) ")
 
 with st.expander("ℹ️ Información del sistema"):
     st.write(f"**Python:** {sys.version}")
