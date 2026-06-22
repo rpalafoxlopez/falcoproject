@@ -130,7 +130,7 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         if use_hydration:
             lam_h, lam_a = corrections.ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
 
-        # 🔥 Aplicar factores de alineación si están disponibles
+        # Aplicar factores de alineación si están disponibles
         if roster_factors:
             lam_h, lam_a = predictors.adjust_by_roster_factors(
                 lam_h, lam_a, home_team, away_team, roster_factors
@@ -215,7 +215,7 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
         if use_hydration:
             lam_h, lam_a = corrections.ajustar_por_pausas_hidratacion(lam_h, lam_a)
 
-        # 🔥 Aplicar factores de alineación si están disponibles
+        # Aplicar factores de alineación si están disponibles
         if roster_factors:
             lam_h, lam_a = predictors.adjust_by_roster_factors(
                 lam_h, lam_a, home_team, away_team, roster_factors
@@ -276,8 +276,13 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
         favorito_elo = elo_a
         underdog_elo = elo_h
 
+    # ✅ Inicializar results y errores UNA SOLA VEZ
     results = {}
     errores = []
+    
+    # ✅ Agregar teams y elo al resultado desde el inicio
+    results['teams'] = (home_team, away_team)
+    results['elo'] = {'home': elo_h, 'away': elo_a}
 
     # Preparar factores de alineación
     roster_factors_dict = None

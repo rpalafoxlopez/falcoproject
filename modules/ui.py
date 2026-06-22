@@ -261,20 +261,34 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
 
 def render_results(results, elo, dixon_coles_rho):
     """Renderiza los resultados de la predicción"""
+    # ✅ Verificar que 'teams' existe
+    if 'teams' not in results:
+        st.error("❌ No hay resultados para mostrar. Los modelos no pudieron generar predicciones.")
+        return
+    
     home_team, away_team = results['teams']
-    elo_h = elo['home']
-    elo_a = elo['away']
+    elo_h = elo.get('home', 0)
+    elo_a = elo.get('away', 0)
 
     st.markdown("---")
     st.subheader("📊 Resumen de Predicción")
 
-    model_count = len([m for m in results.keys() if m not in ['teams', 'elo']])
-    cols = st.columns(min(model_count, 4))
+    # Filtrar solo los modelos que tienen datos válidos
+    valid_models = []
+    for key, value in results.items():
+        if key not in ['teams', 'elo'] and value is not None:
+            if isinstance(value, dict) and 'score_matrix' in value:
+                valid_models.append(key)
+    
+    if not valid_models:
+        st.warning("⚠️ No hay modelos con predicciones válidas.")
+        return
 
+    cols = st.columns(min(len(valid_models), 4))
+    
     col_idx = 0
-    for model_name, model_data in results.items():
-        if model_name in ['teams', 'elo']:
-            continue
+    for model_name in valid_models:
+        model_data = results[model_name]
         with cols[col_idx % len(cols)]:
             display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
             st.metric(
@@ -287,12 +301,11 @@ def render_results(results, elo, dixon_coles_rho):
 
     st.markdown("---")
 
-    model_cols = st.columns(model_count)
+    model_cols = st.columns(len(valid_models))
     col_idx = 0
 
-    for model_name, model_data in results.items():
-        if model_name in ['teams', 'elo']:
-            continue
+    for model_name in valid_models:
+        model_data = results[model_name]
 
         with model_cols[col_idx % len(model_cols)]:
             display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
@@ -346,14 +359,13 @@ def render_results(results, elo, dixon_coles_rho):
 
         col_idx += 1
 
-    if model_count > 1:
+    if len(valid_models) > 1:
         st.markdown("---")
         st.subheader("📋 Comparativa de Modelos")
 
         comp_data = []
-        for model_name, model_data in results.items():
-            if model_name in ['teams', 'elo']:
-                continue
+        for model_name in valid_models:
+            model_data = results[model_name]
             sm = model_data['score_matrix'][:7, :7]
             top_idx = np.unravel_index(sm.argmax(), sm.shape)
             comp_data.append({
