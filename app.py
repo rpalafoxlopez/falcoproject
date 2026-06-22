@@ -73,13 +73,16 @@ st.markdown("""
             ) !important;
         border-right: 1px solid rgba(255, 255, 255, 0.03);
     }
+    
     [data-testid="stSidebar"] .stMarkdown,
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stCaption
     {
-        color: var(--text-secondary);
+        color: #e2e8f0 !important;
+        text-shadow: 0 4px 20px rgba(120, 231, 248, 0.5);
     }
+    
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
         color: var(--text-primary) !important;
         font-family: 'Inter', sans-serif !important;
