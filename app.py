@@ -1,4 +1,4 @@
-# app.py - Predicción Mundial 2026 - Versión Rediseñada con Mejoras
+# app.py - Predicción Mundial 2026 - Versión Corregida con Mejoras
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -29,7 +29,6 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Bebas+Neue&display=swap');
 
-    /* Variables de color */
     :root {
         --bg-primary: #02091d;
         --bg-secondary: #111827;
@@ -48,17 +47,14 @@ st.markdown("""
         --shadow-glow: 0 0 30px rgba(0, 212, 255, 0.05);
     }
 
-    /* Reset de fondo */
     .stApp {
         background: linear-gradient(to bottom, #e8edf2 0%, #c8d6e5 100%);
         font-family: 'Inter', sans-serif;
-        color: #1a1a2e;  /* ✅ Texto oscuro para fondo claro */
+        color: #1a1a2e;
     }
 
-
-    /* Sidebar */
     [data-testid="stSidebar"] {
-       background: 
+        background: 
             linear-gradient(
                 135deg,
                 rgba(0, 212, 255, 0.03) 0%,
@@ -77,8 +73,7 @@ st.markdown("""
     [data-testid="stSidebar"] .stMarkdown,
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] .stCaption
-    {
+    [data-testid="stSidebar"] .stCaption {
         color: #e2e8f0 !important;
         text-shadow: 0 4px 20px rgba(120, 231, 248, 0.5);
     }
@@ -89,7 +84,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Headers */
     h1, h2, h3, h4 {
         font-family: 'Inter', sans-serif !important;
         color: var(--text-primary) !important;
@@ -99,7 +93,6 @@ st.markdown("""
         letter-spacing: -0.5px;
     }
 
-    /* Cards / Containers */
     [data-testid="stVerticalBlock"] > [style*="flex-direction: column"] > [data-testid="stVerticalBlock"] {
         background: var(--bg-card);
         border: 1px solid var(--border-subtle);
@@ -108,7 +101,6 @@ st.markdown("""
         transition: all 0.3s ease;
     }
 
-    /* Metric cards - MEJORADO */
     [data-testid="stMetric"] {
         background: var(--bg-secondary) !important;
         border: 1px solid var(--border-subtle);
@@ -137,7 +129,6 @@ st.markdown("""
         font-size: 0.8rem !important;
     }
 
-    /* Buttons */
     .stButton > button {
         background: linear-gradient(135deg, #00d4ff, #0099ff) !important;
         color: #000 !important;
@@ -155,7 +146,6 @@ st.markdown("""
         box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4) !important;
     }
 
-    /* Select boxes - MEJORADO */
     .stSelectbox > div > div {
         background: var(--bg-card) !important;
         border: 1px solid var(--border-subtle) !important;
@@ -168,17 +158,14 @@ st.markdown("""
         box-shadow: 0 0 20px rgba(0, 212, 255, 0.1) !important;
     }
 
-    /* Sliders */
     .stSlider > div > div > div {
         background: var(--accent-cyan) !important;
     }
 
-    /* Checkboxes */
     .stCheckbox > div > div > div {
         background: var(--accent-cyan) !important;
     }
 
-    /* Dataframes */
     .stDataFrame {
         border: 1px solid var(--border-subtle) !important;
         border-radius: 12px !important;
@@ -193,7 +180,6 @@ st.markdown("""
         color: var(--text-secondary) !important;
     }
 
-    /* Expander */
     .streamlit-expanderHeader {
         background: var(--bg-card) !important;
         border: 1px solid var(--border-subtle) !important;
@@ -211,7 +197,6 @@ st.markdown("""
         border-radius: 0 0 10px 10px !important;
     }
 
-    /* Info/Warning/Success boxes */
     .stAlert {
         border-radius: 12px !important;
         border: 1px solid var(--border-subtle) !important;
@@ -230,7 +215,6 @@ st.markdown("""
         border-radius: 12px !important;
     }
 
-    /* Spinner - MEJORADO */
     .stSpinner > div {
         border-color: var(--accent-cyan) !important;
         border-top-color: transparent !important;
@@ -239,13 +223,11 @@ st.markdown("""
         height: 48px !important;
     }
 
-    /* Divider */
     hr {
         border-color: var(--border-subtle) !important;
         margin: 24px 0 !important;
     }
 
-    /* Custom title bar - MEJORADO */
     .title-bar {
         background: linear-gradient(135deg, #0f172a, #1e293b);
         border: 1px solid rgba(0, 212, 255, 0.15);
@@ -280,8 +262,8 @@ st.markdown("""
         font-size: 2.5rem !important;
         letter-spacing: 3px !important;
         margin: 0 !important;
-        color: #ffffff;  /* Texto blanco sólido */
-        text-shadow: 0 0 30px rgba(0, 212, 255, 0.3);  /* ✅ Glow alrededor */
+        color: #ffffff;
+        text-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
         filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.2));
     }
     .title-bar p {
@@ -297,7 +279,7 @@ st.markdown("""
         flex-wrap: wrap;
     }
     .badge {
-        background: rgba(0, 0, 0, 0.08);  /* ✅ Más visible sobre fondo claro */
+        background: rgba(0, 0, 0, 0.08);
         border: 1px solid rgba(0, 0, 0, 0.15);
         color: #0a0e1a;
         padding: 4px 12px;
@@ -316,12 +298,10 @@ st.markdown("""
         border-color: rgba(210, 200, 15, 0.3);
         color: #8a7a00;
     }
-
     .badge.gold:hover {
         background: rgba(255, 193, 7, 0.2);
     }
 
-    /* Status bar - MEJORADO */
     .status-bar {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -358,7 +338,6 @@ st.markdown("""
     .status-item .value.green { color: var(--accent-green); }
     .status-item .value.red { color: var(--accent-red); }
 
-    /* Probability bars - MEJORADO */
     .prob-bar {
         height: 8px;
         border-radius: 4px;
@@ -388,7 +367,6 @@ st.markdown("""
         100% { transform: translateX(100%); }
     }
 
-    /* Footer - MEJORADO */
     .footer {
         text-align: center;
         padding: 24px 16px;
@@ -413,7 +391,6 @@ st.markdown("""
         margin: 0 8px;
     }
 
-    /* Scrollbar */
     ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -430,12 +407,10 @@ st.markdown("""
         background: var(--accent-cyan);
     }
 
-    /* Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Responsive - MEJORADO */
     @media (max-width: 768px) {
         .title-bar {
             padding: 16px 20px;
@@ -509,20 +484,42 @@ WORLD_CUP_2026_TEAMS = [
 ]
 WORLD_CUP_2026_TEAMS = sorted([team for team in WORLD_CUP_2026_TEAMS])
 
-DIXON_COLES_RHO = -0.039
+# ============================================================================
+# PARÁMETROS CONFIGURABLES
+# ============================================================================
+DIXON_COLES_RHO = -0.13  # Cambiado de -0.039 a -0.13 para torneos de eliminación directa
 
 # ============================================================================
-# FUNCIÓN DE AJUSTE HÍBRIDO
+# FUNCIÓN DE AJUSTE HÍBRIDO (MEJORADA)
 # ============================================================================
-def ajustar_por_pausas_hidratacion(lam_h, lam_a):
-    factor_general = 0.92
+def ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h=None, elo_a=None):
+    """
+    Ajuste híbrido para el formato de 4 tiempos con pausas de hidratación.
+    Ahora con contracción adaptativa basada en diferencia de Elo.
+    """
+    factor_general = 0.95  # Reducido de 0.92 a 0.95 (menos agresivo)
     media_h_general = 1.35
     media_a_general = 1.05
+    
     lam_h_ajustado = lam_h * factor_general
     lam_a_ajustado = lam_a * factor_general
-    factor_contraccion = 0.15
+    
+    # Contracción adaptativa basada en diferencia de Elo
+    if elo_h is not None and elo_a is not None:
+        diff_elo = abs(elo_h - elo_a)
+        # Si la diferencia es grande (>200 Elo), menos contracción
+        if diff_elo > 200:
+            factor_contraccion = 0.05  # Casi sin contracción
+        elif diff_elo > 100:
+            factor_contraccion = 0.08
+        else:
+            factor_contraccion = 0.12  # Contracción normal para partidos equilibrados
+    else:
+        factor_contraccion = 0.12
+    
     lam_h_ajustado = lam_h_ajustado * (1 - factor_contraccion) + media_h_general * factor_contraccion
     lam_a_ajustado = lam_a_ajustado * (1 - factor_contraccion) + media_a_general * factor_contraccion
+    
     return lam_h_ajustado, lam_a_ajustado
 
 # ============================================================================
@@ -602,13 +599,54 @@ def ajustar_por_gol_temprano(score_matrix, lam_h, lam_a, home_team, away_team,
     return score_matrix_ajustada
 
 # ============================================================================
+# FUNCIÓN DE AJUSTE POR MOMENTUM (CORREGIDA - FUERA DEL MODAL)
+# ============================================================================
+def ajustar_por_momentum(lam_h, lam_a, home_team, away_team, 
+                         minuto_gol=None, es_favorito_local=None,
+                         llegadas_previas_h=None, llegadas_previas_a=None,
+                         marcador_actual=None):
+    """
+    Ajuste dinámico por momentum en tiempo real.
+    """
+    # 1. Ajuste por gol tardío del favorito (minuto 80+)
+    if minuto_gol is not None and minuto_gol >= 80:
+        if es_favorito_local:
+            lam_h *= 1.12
+            lam_a *= 0.95
+        else:
+            lam_a *= 1.12
+            lam_h *= 0.95
+    
+    # 2. Ajuste por relajación defensiva (si va ganando por 2+ goles)
+    if marcador_actual is not None:
+        diff = marcador_actual.get('home', 0) - marcador_actual.get('away', 0)
+        if diff >= 2:
+            lam_a *= 1.08
+        elif diff <= -2:
+            lam_h *= 1.08
+    
+    # 3. Ajuste por momentum del cuarto anterior
+    if (llegadas_previas_h is not None and llegadas_previas_a is not None 
+        and llegadas_previas_a > 0 and llegadas_previas_h > 0):
+        ratio = llegadas_previas_h / llegadas_previas_a
+        if ratio > 1.5:
+            lam_h *= 1.06
+        elif ratio < 0.67:
+            lam_a *= 1.06
+    
+    return lam_h, lam_a
+
+# ============================================================================
 # CONEXIÓN A ESPN
 # ============================================================================
 @st.cache_data(ttl=3600)
 def get_espn_fixture():
     try:
+        # Usar rango de fechas para cubrir todo el torneo
+        start_date = "2026-06-11"
+        end_date = "2026-07-19"
         url = "https://site.web.api.espn.com/apis/site/v2/sports/soccer/fifa.worldcup/scoreboard"
-        params = {"dates": "2026-06-11", "region": "us", "lang": "en", "contentorigin": "espn"}
+        params = {"dates": start_date, "region": "us", "lang": "en", "contentorigin": "espn"}
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         response = requests.get(url, params=params, headers=headers, timeout=10)
         if response.status_code == 200:
@@ -801,6 +839,13 @@ with st.sidebar:
     train_start = st.selectbox("📊 Ventana de entrenamiento", ["2018-01-01", "2016-01-01", "2014-01-01", "2010-01-01"], index=0)
 
     st.markdown("---")
+    st.subheader("🏟️ Configuración del Partido")
+    
+    # Nuevo: Sede neutral
+    neutral_venue = st.checkbox("🏟️ Partido en sede neutral", value=False, 
+                               help="Anula la ventaja de localía (aplica para Mundial en USA/Canadá/México)")
+
+    st.markdown("---")
     st.subheader("🤖 Modelos a usar")
 
     use_xgboost = st.checkbox("✅ XGBoost", value=True)
@@ -810,18 +855,27 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("🔧 Correcciones")
 
-    use_dixon_coles = st.checkbox("🔧 Dixon-Coles (ρ=-0.039)", value=True, help="Corrige la subestimación de empates")
+    use_dixon_coles = st.checkbox("🔧 Dixon-Coles", value=True, help="Corrige la subestimación de empates")
     use_hydration_adjustment = st.checkbox("💧 Pausas de hidratación (4 tiempos)", value=True)
 
     st.markdown("---")
-    st.subheader("⚡ Ajuste por Gol Temprano del Underdog")
-
-    use_dynamic_adjustment = st.checkbox("⚡ Activar ajuste dinámico", value=False)
+    st.subheader("⚡ Ajustes Dinámicos")
+    
+    use_dynamic_adjustment = st.checkbox("⚡ Ajuste por gol temprano del underdog", value=False)
 
     if use_dynamic_adjustment:
         underdog_scored_first = st.checkbox("🏃 El underdog anotó primero", value=False)
         minuto_gol = st.slider("⏱️ Minuto del primer gol", 1, 90, 15, help="Minuto en que el underdog anotó")
         st.caption("💡 Si el underdog anota primero, el partido se vuelve más abierto.")
+    
+    # Nuevo: Ajuste por momentum
+    use_momentum_adjustment = st.checkbox("⚡ Ajuste por momentum (gol tardío del favorito)", value=False)
+    
+    if use_momentum_adjustment:
+        minuto_gol_favorito = st.slider("⏱️ Minuto del gol del favorito", 1, 90, 85, 
+                                       help="Si el favorito anota en el minuto 80+, aumenta sus chances")
+        llegadas_previas_h = st.number_input("Llegadas del local en el cuarto anterior", 0, 20, 5)
+        llegadas_previas_a = st.number_input("Llegadas del visitante en el cuarto anterior", 0, 20, 3)
 
     st.markdown("---")
     max_goals_display = st.slider("📊 Máximo de goles a mostrar", 4, 10, 7)
@@ -834,6 +888,7 @@ with st.sidebar:
             st.dataframe(fixture_df, hide_index=True, use_container_width=True)
 
     predict_btn = st.button("🔮 Predecir", type="primary", use_container_width=True)
+
 # ============================================================================
 # SIDEBAR - VALIDACIÓN DEL MODELO (CON MODAL)
 # ============================================================================
@@ -844,7 +899,6 @@ with st.sidebar:
 
     # Botón para abrir el modal de validación
     if st.button("📊 Validar modelo", use_container_width=True):
-        # Abrir modal con st.dialog
         st.session_state.show_validation = True
 
 # ============================================================================
@@ -906,22 +960,22 @@ if st.session_state.show_validation:
         </style>
         """, unsafe_allow_html=True)
         
-        # Contenido del modal
         st.markdown("""
         <p style="margin-bottom: 16px;">
-            <span class="validation-badge">📊 612 partidos</span>
+            <span class="validation-badge">📊 Validación fuera de muestra</span>
             <span class="validation-badge" style="margin-left: 8px;">📅 2025-09-02 → 2026-06-01</span>
         </p>
         """, unsafe_allow_html=True)
         
         with st.spinner("🔄 Ejecutando validación (puede tomar 1-2 minutos)..."):
             try:
-                # 1. Configurar fechas de validación
-                TRAIN_END = "2025-09-01"
-                TEST_START = "2025-09-02"
-                TEST_END = "2026-06-01"
+                # Usar datos históricos reales para validación
+                # Nota: Como los datos futuros no existen, validamos en datos históricos recientes
+                TRAIN_END = "2024-01-01"
+                TEST_START = "2024-01-02"
+                TEST_END = "2025-09-01"
                 
-                # 2. Preparar datos de entrenamiento y prueba
+                train_data = raw[(raw["date"] <= TRAIN_END) & raw["home_score"].notna()].copy()
                 test_data = raw[(raw["date"] >= TEST_START) & (raw["date"] <= TEST_END) & raw["home_score"].notna()].copy()
                 
                 if len(test_data) < 10:
@@ -930,8 +984,8 @@ if st.session_state.show_validation:
                         st.session_state.show_validation = False
                         st.rerun()
                 else:
-                    # 3. Entrenar modelo base (sin pausas)
-                    with st.spinner("⚙️ Entrenando modelo base..."):
+                    # Entrenar modelo base
+                    with st.spinner("⚙️ Entrenando modelo..."):
                         hist = raw[(raw.date <= TRAIN_END) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
                         hist = hist[hist.date >= "2018-01-01"].copy()
                         
@@ -1021,7 +1075,7 @@ if st.session_state.show_validation:
                         
                         xgb_model, FEATURES, final_elo, final_form = entrenar_modelo_validacion(hist)
                     
-                    # 4. Evaluar sin pausas
+                    # Evaluar sin pausas
                     aciertos_a = 0
                     for _, row in test_data.iterrows():
                         def get_snapshot(team):
@@ -1056,7 +1110,7 @@ if st.session_state.show_validation:
                             aciertos_a += 1
                     acc_a = aciertos_a / len(test_data)
                     
-                    # 5. Evaluar con pausas de hidratación
+                    # Evaluar con pausas de hidratación
                     aciertos_b = 0
                     for _, row in test_data.iterrows():
                         def get_snapshot(team):
@@ -1082,14 +1136,7 @@ if st.session_state.show_validation:
                         lam_h, lam_a = xgb_model.predict(feat_df)
                         
                         # Aplicar ajuste por pausas de hidratación
-                        factor_general = 0.92
-                        media_h_general = 1.35
-                        media_a_general = 1.05
-                        factor_contraccion = 0.15
-                        lam_h = lam_h * factor_general
-                        lam_a = lam_a * factor_general
-                        lam_h = lam_h * (1 - factor_contraccion) + media_h_general * factor_contraccion
-                        lam_a = lam_a * (1 - factor_contraccion) + media_a_general * factor_contraccion
+                        lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
                         
                         goals = np.arange(0, 8 + 1)
                         sm = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
@@ -1101,7 +1148,7 @@ if st.session_state.show_validation:
                             aciertos_b += 1
                     acc_b = aciertos_b / len(test_data)
                     
-                    # 6. Evaluar con momentum (NUEVO)
+                    # Evaluar con pausas + momentum
                     aciertos_c = 0
                     for _, row in test_data.iterrows():
                         def get_snapshot(team):
@@ -1127,22 +1174,15 @@ if st.session_state.show_validation:
                         lam_h, lam_a = xgb_model.predict(feat_df)
                         
                         # Aplicar ajuste por pausas de hidratación
-                        factor_general = 0.92
-                        media_h_general = 1.35
-                        media_a_general = 1.05
-                        factor_contraccion = 0.15
-                        lam_h = lam_h * factor_general
-                        lam_a = lam_a * factor_general
-                        lam_h = lam_h * (1 - factor_contraccion) + media_h_general * factor_contraccion
-                        lam_a = lam_a * (1 - factor_contraccion) + media_a_general * factor_contraccion
+                        lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
                         
-                        # 🔥 APLICAR AJUSTE POR MOMENTUM
+                        # Aplicar ajuste por momentum
                         es_favorito_local = elo_h > elo_a
                         lam_h, lam_a = ajustar_por_momentum(
                             lam_h, lam_a, 
                             home_team=row['home_team'],
                             away_team=row['away_team'],
-                            minuto_gol=85,  # Simulamos gol tardío en validación
+                            minuto_gol=85,
                             es_favorito_local=es_favorito_local,
                             marcador_actual={'home': row.home_score, 'away': row.away_score}
                         )
@@ -1157,46 +1197,40 @@ if st.session_state.show_validation:
                             aciertos_c += 1
                     acc_c = aciertos_c / len(test_data)
                     
-                    # 7. Mostrar resultados en el modal
+                    # Mostrar resultados
                     st.success("✅ Validación completada!")
                     
-                    # Métricas principales
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("📊 Partidos", len(test_data), delta="612 total")
+                        st.metric("📊 Partidos", len(test_data))
                     with col2:
-                        st.metric("🔵 Modelo base", f"{acc_a*100:.1f}%")
+                        st.metric("🔵 Base", f"{acc_a*100:.1f}%")
                     with col3:
                         st.metric("🟢 Con pausas", f"{acc_b*100:.1f}%", 
                                  delta=f"{(acc_b - acc_a)*100:+.1f} pp")
                     
                     st.markdown("---")
                     
-                    # Comparativa con benchmark y momentum
                     benchmark = 0.593
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("📊 Benchmark externo", "59.3%", delta="XGBoost copiado")
+                        st.metric("📊 Benchmark", "59.3%")
                     with col2:
-                        st.metric("🟣 Con momentum", f"{acc_c*100:.1f}%", 
-                                 delta=f"{(acc_c - acc_b)*100:+.1f} pp vs pausas")
+                        st.metric("🟣 + Momentum", f"{acc_c*100:.1f}%", 
+                                 delta=f"{(acc_c - acc_b)*100:+.1f} pp")
                     with col3:
-                        st.metric("📈 vs benchmark", f"{(acc_c - benchmark)*100:+.1f} pp", 
-                                 delta="Mejora total")
+                        st.metric("📈 vs benchmark", f"{(acc_c - benchmark)*100:+.1f} pp")
                     
                     st.markdown("---")
                     
-                    # Tabla comparativa completa
-                    st.caption("📋 Comparativa completa:")
                     comp_df = pd.DataFrame([
-                        {"Modelo": "XGBoost (copiado)", "Accuracy 1X2": "59.3%", "Mejora": "—"},
-                        {"Modelo": "XGBoost (base)", "Accuracy 1X2": f"{acc_a*100:.1f}%", "Mejora": "—"},
-                        {"Modelo": "XGBoost + pausas", "Accuracy 1X2": f"{acc_b*100:.1f}%", "Mejora": f"{(acc_b - acc_a)*100:+.1f} pp"},
-                        {"Modelo": "XGBoost + pausas + momentum", "Accuracy 1X2": f"{acc_c*100:.1f}%", "Mejora": f"{(acc_c - acc_b)*100:+.1f} pp"}
+                        {"Modelo": "XGBoost (copiado)", "Accuracy": "59.3%", "Mejora": "—"},
+                        {"Modelo": "XGBoost (base)", "Accuracy": f"{acc_a*100:.1f}%", "Mejora": "—"},
+                        {"Modelo": "+ Pausas", "Accuracy": f"{acc_b*100:.1f}%", "Mejora": f"{(acc_b - acc_a)*100:+.1f} pp"},
+                        {"Modelo": "+ Pausas + Momentum", "Accuracy": f"{acc_c*100:.1f}%", "Mejora": f"{(acc_c - acc_b)*100:+.1f} pp"}
                     ])
                     st.dataframe(comp_df, hide_index=True, use_container_width=True)
                     
-                    # Botón para cerrar el modal
                     if st.button("✅ Cerrar validación", use_container_width=True):
                         st.session_state.show_validation = False
                         st.rerun()
@@ -1208,55 +1242,14 @@ if st.session_state.show_validation:
                     st.session_state.show_validation = False
                     st.rerun()
     
-    # Ejecutar el modal
     validation_modal()
-    
-# ============================================================================
-# FUNCIÓN DE AJUSTE POR MOMENTUM (MOVER AQUÍ)
-# ============================================================================
-    def ajustar_por_momentum(lam_h, lam_a, home_team, away_team, 
-                         minuto_gol=None, es_favorito_local=None,
-                         llegadas_previas_h=None, llegadas_previas_a=None,
-                         marcador_actual=None):
-    """
-    Ajuste dinámico por momentum en tiempo real.
-    """
-    # 1. Ajuste por gol tardío del favorito (minuto 80+)
-    if minuto_gol is not None and minuto_gol >= 80:
-        if es_favorito_local:
-            lam_h *= 1.12
-        else:
-            lam_a *= 1.12
-        # Reducir la probabilidad de empate/derrota del favorito
-        if es_favorito_local:
-            lam_a *= 0.95
-        else:
-            lam_h *= 0.95
-    
-    # 2. Ajuste por relajación defensiva (si va ganando por 2+ goles)
-    if marcador_actual is not None:
-        if marcador_actual.get('home', 0) >= marcador_actual.get('away', 0) + 2:
-            lam_a *= 1.08  # El visitante tiene más oportunidades
-        elif marcador_actual.get('away', 0) >= marcador_actual.get('home', 0) + 2:
-            lam_h *= 1.08
-    
-    # 3. Ajuste por momentum del cuarto anterior
-    if llegadas_previas_h is not None and llegadas_previas_a is not None:
-        if llegadas_previas_h > llegadas_previas_a * 1.5:
-            lam_h *= 1.06
-        elif llegadas_previas_a > llegadas_previas_h * 1.5:
-            lam_a *= 1.06
-    
-    return lam_h, lam_a
 
 # ============================================================================
 # FUNCIONES DE PREDICCIÓN
 # ============================================================================
 
-
-
 def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8,
-                         use_hydration=True, use_dixon_coles=True):
+                         use_hydration=True, use_dixon_coles=True, neutral_venue=False):
     if not PYMC_AVAILABLE:
         return None, None, None, None, None
     try:
@@ -1264,54 +1257,73 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
         away_idx = train.away_team.map(team_idx).values
         home_goals = train.home_score.values
         away_goals = train.away_score.values
+        
         coords = {"team": teams}
         with pm.Model(coords=coords) as bayes_model:
             sigma_att = pm.HalfNormal("sigma_att", sigma=1.0)
             sigma_def = pm.HalfNormal("sigma_def", sigma=1.0)
+            
             attack_raw = pm.Normal("attack_raw", mu=0.0, sigma=sigma_att, dims="team")
             defense_raw = pm.Normal("defense_raw", mu=0.0, sigma=sigma_def, dims="team")
+            
             attack = pm.Deterministic("attack", attack_raw - attack_raw.mean(), dims="team")
             defense = pm.Deterministic("defense", defense_raw - defense_raw.mean(), dims="team")
-            home_adv = pm.Normal("home_adv", mu=0.3, sigma=0.5)
+            
+            # Si es sede neutral, home_adv se anula
+            if neutral_venue:
+                home_adv = pm.Normal("home_adv", mu=0.0, sigma=0.1)
+            else:
+                home_adv = pm.Normal("home_adv", mu=0.3, sigma=0.5)
+            
             intercept = pm.Normal("intercept", mu=0.0, sigma=1.0)
+            
             log_theta_home = intercept + home_adv + attack[home_idx] - defense[away_idx]
             log_theta_away = intercept + attack[away_idx] - defense[home_idx]
+            
             pm.Poisson("home_goals_obs", mu=pm.math.exp(log_theta_home), observed=home_goals)
             pm.Poisson("away_goals_obs", mu=pm.math.exp(log_theta_away), observed=away_goals)
+            
             idata = pm.sample(draws=500, tune=500, chains=2, cores=1,
                             random_seed=42, target_accept=0.85,
                             progressbar=False, return_inferencedata=True)
+        
         post = idata.posterior
         intercept_vals = post["intercept"].values.flatten()
         home_adv_vals = post["home_adv"].values.flatten()
         attack_vals = post["attack"].values.reshape(-1, post["attack"].shape[-1])
         defense_vals = post["defense"].values.reshape(-1, post["defense"].shape[-1])
+        
         hi, ai = team_idx[home_team], team_idx[away_team]
         log_th = intercept_vals + home_adv_vals + attack_vals[:, hi] - defense_vals[:, ai]
         log_ta = intercept_vals + attack_vals[:, ai] - defense_vals[:, hi]
         lam_h = np.exp(log_th).mean()
         lam_a = np.exp(log_ta).mean()
+        
         if use_hydration:
             lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a)
+        
         goals = np.arange(0, max_goals + 1)
         pmf_h = poisson.pmf(goals, lam_h)
         pmf_a = poisson.pmf(goals, lam_a)
         score_matrix = np.outer(pmf_h, pmf_a)
+        
         if use_dixon_coles:
             score_matrix = aplicar_dixon_coles(score_matrix, lam_h, lam_a)
         else:
             suma = score_matrix.sum()
             if suma > 0:
                 score_matrix = score_matrix / suma
+        
         att_ratings = {team: post["attack"].sel(team=team).mean().item() for team in teams}
         def_ratings = {team: post["defense"].sel(team=team).mean().item() for team in teams}
+        
         return score_matrix, lam_h, lam_a, att_ratings, def_ratings
     except Exception as e:
         st.warning(f"⚠️ Bayesiano: {str(e)}")
         return None, None, None, None, None
 
 def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
-                        use_hydration=True, use_dixon_coles=True):
+                        use_hydration=True, use_dixon_coles=True, neutral_venue=False):
     try:
         import xgboost as xgb
         K_ELO = 20.0
@@ -1320,6 +1332,7 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         DEFAULT_WEIGHT = 1.0
         stats_h = get_espn_team_stats(home_team)
         stats_a = get_espn_team_stats(away_team)
+        
         ratings = {}
         elo_h, elo_a = [], []
         for _, row in hist.iterrows():
@@ -1334,36 +1347,48 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             delta = K_ELO * (np.log(margin + 1) + 1.0) * (score - exp_h)
             ratings[row.home_team] = rh + delta
             ratings[row.away_team] = ra - delta
+        
         hist = hist.copy()
         hist["elo_home"], hist["elo_away"] = elo_h, elo_a
         final_elo = ratings
+        
         records = {}
         gf10_h, ga10_h, form5_h = [], [], []
         gf10_a, ga10_a, form5_a = [], [], []
+        
         for _, row in hist.iterrows():
             h_rec = records.get(row.home_team, [])
             a_rec = records.get(row.away_team, [])
+            
             def summarize(hist_rec):
                 last10, last5 = hist_rec[-10:], hist_rec[-5:]
                 gf = np.mean([x[1] for x in last10]) if last10 else np.nan
                 ga = np.mean([x[2] for x in last10]) if last10 else np.nan
                 pts = sum(x[3] for x in last5) if last5 else np.nan
                 return gf, ga, pts
+            
             hgf, hga, hpts = summarize(h_rec)
             agf, aga, apts = summarize(a_rec)
             gf10_h.append(hgf); ga10_h.append(hga); form5_h.append(hpts)
             gf10_a.append(agf); ga10_a.append(aga); form5_a.append(apts)
+            
             h_pts = 3 if row.home_score > row.away_score else (1 if row.home_score == row.away_score else 0)
             a_pts = 3 if row.away_score > row.home_score else (1 if row.home_score == row.away_score else 0)
             records.setdefault(row.home_team, []).append((row.date, row.home_score, row.away_score, h_pts))
             records.setdefault(row.away_team, []).append((row.date, row.away_score, row.home_score, a_pts))
+        
         hist["gf10_h"], hist["ga10_h"], hist["form5_h"] = gf10_h, ga10_h, form5_h
         hist["gf10_a"], hist["ga10_a"], hist["form5_a"] = gf10_a, ga10_a, form5_a
         final_form = records
+        
         def to_long(df):
             df["tournament_weight"] = df.tournament.map(TOURNAMENT_WEIGHTS).fillna(DEFAULT_WEIGHT)
+            
+            # Si es sede neutral, is_home se anula
+            is_home_value = 0 if neutral_venue else 1
+            
             home_rows = pd.DataFrame({
-                "team": df.home_team, "goals": df.home_score, "is_home": 1,
+                "team": df.home_team, "goals": df.home_score, "is_home": is_home_value,
                 "elo_team": df.elo_home, "elo_opponent": df.elo_away,
                 "gf10": df.gf10_h, "ga10": df.ga10_h, "form5": df.form5_h,
                 "tournament_weight": df.tournament_weight,
@@ -1377,14 +1402,17 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             long = pd.concat([home_rows, away_rows], ignore_index=True)
             long["elo_diff"] = long.elo_team - long.elo_opponent
             return long.dropna(subset=["gf10", "ga10", "form5"])
+        
         long_df = to_long(hist)
         FEATURES = ["elo_team", "elo_opponent", "elo_diff", "is_home", "gf10", "ga10", "form5", "tournament_weight"]
+        
         xgb_model = xgb.XGBRegressor(
             objective="count:poisson", n_estimators=200, max_depth=4, learning_rate=0.03,
             subsample=0.8, colsample_bytree=0.8, min_child_weight=5, random_state=42,
             n_jobs=1
         )
         xgb_model.fit(long_df[FEATURES], long_df["goals"])
+        
         def get_snapshot(team):
             hist_team = final_form.get(team, [])
             last10, last5 = hist_team[-10:], hist_team[-5:]
@@ -1393,30 +1421,41 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             pts = sum(x[3] for x in last5) if last5 else 0.0
             elo = final_elo.get(team, ELO_INIT)
             return elo, gf, ga, pts
+        
         elo_h, gf_h, ga_h, pts_h = get_snapshot(home_team)
         elo_a, gf_a, ga_a, pts_a = get_snapshot(away_team)
+        
+        # Si es sede neutral, is_home se anula
+        is_home_value = 0 if neutral_venue else 1
+        
         row_home = {"elo_team": elo_h, "elo_opponent": elo_a, "elo_diff": elo_h - elo_a,
-                    "is_home": 1, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
+                    "is_home": is_home_value, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
                     "tournament_weight": 4.0}
         row_away = {"elo_team": elo_a, "elo_opponent": elo_h, "elo_diff": elo_a - elo_h,
                     "is_home": 0, "gf10": gf_a, "ga10": ga_a, "form5": pts_a,
                     "tournament_weight": 4.0}
+        
         feat_df = pd.DataFrame([row_home, row_away])[FEATURES]
         lam_h, lam_a = xgb_model.predict(feat_df)
+        
         if use_hydration:
-            lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a)
+            lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
+        
         goals = np.arange(0, max_goals + 1)
         score_matrix = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
+        
         if use_dixon_coles:
             score_matrix = aplicar_dixon_coles(score_matrix, lam_h, lam_a)
         else:
             suma = score_matrix.sum()
             if suma > 0:
                 score_matrix = score_matrix / suma
+        
         team_stats = {
             home_team: {"elo": elo_h, "attack": stats_h.get('attack', 1.5), "defense": stats_h.get('defense', 1.3)},
             away_team: {"elo": elo_a, "attack": stats_a.get('attack', 1.5), "defense": stats_a.get('defense', 1.3)}
         }
+        
         return score_matrix, lam_h, lam_a, team_stats
     except Exception as e:
         st.error(f"❌ XGBoost: {str(e)}")
@@ -1551,9 +1590,11 @@ if predict_btn:
     elo_a = stats_a.get('elo', 1750)
 
     if elo_h > elo_a:
-        favorito_elo = elo_h; underdog_elo = elo_a
+        favorito_elo = elo_h
+        underdog_elo = elo_a
     else:
-        favorito_elo = elo_a; underdog_elo = elo_h
+        favorito_elo = elo_a
+        underdog_elo = elo_h
 
     results = {}
     errores = []
@@ -1565,22 +1606,41 @@ if predict_btn:
                 hist = hist[hist.date >= train_start].copy()
                 sm_xgb, lam_h_xgb, lam_a_xgb, team_stats = train_xgboost_model(
                     hist, raw, home_team, away_team, max_goals_display,
-                    use_hydration_adjustment, use_dixon_coles
+                    use_hydration_adjustment, use_dixon_coles, neutral_venue
                 )
                 if sm_xgb is not None:
+                    # Aplicar ajustes dinámicos
                     if use_dynamic_adjustment:
-                        sm_xgb_original = sm_xgb.copy()
                         sm_xgb = ajustar_por_gol_temprano(
                             sm_xgb, lam_h_xgb, lam_a_xgb,
                             home_team, away_team,
                             underdog_scored_first, minuto_gol,
                             favorito_elo, underdog_elo
                         )
-                    else:
-                        sm_xgb_original = None
+                    
+                    if use_momentum_adjustment:
+                        es_favorito_local = elo_h > elo_a
+                        lam_h_xgb, lam_a_xgb = ajustar_por_momentum(
+                            lam_h_xgb, lam_a_xgb,
+                            home_team, away_team,
+                            minuto_gol=minuto_gol_favorito,
+                            es_favorito_local=es_favorito_local,
+                            llegadas_previas_h=llegadas_previas_h if 'llegadas_previas_h' in locals() else None,
+                            llegadas_previas_a=llegadas_previas_a if 'llegadas_previas_a' in locals() else None,
+                            marcador_actual={'home': 0, 'away': 0}
+                        )
+                        # Recalcular matriz con los nuevos lambdas
+                        goals = np.arange(0, max_goals_display + 1)
+                        sm_xgb = np.outer(poisson.pmf(goals, lam_h_xgb), poisson.pmf(goals, lam_a_xgb))
+                        suma = sm_xgb.sum()
+                        if suma > 0:
+                            sm_xgb = sm_xgb / suma
+                    
                     results['xgb'] = {
-                        'score_matrix': sm_xgb, 'lam_h': lam_h_xgb, 'lam_a': lam_a_xgb,
-                        'team_stats': team_stats, 'original_matrix': sm_xgb_original
+                        'score_matrix': sm_xgb,
+                        'lam_h': lam_h_xgb,
+                        'lam_a': lam_a_xgb,
+                        'team_stats': team_stats
                     }
                 else:
                     errores.append("XGBoost falló")
@@ -1592,23 +1652,40 @@ if predict_btn:
             with st.spinner("⚙️ Entrenando Bayesiano (1-2 min)..."):
                 sm_bayes, lam_h_bayes, lam_a_bayes, att_ratings, def_ratings = train_bayesian_model(
                     train, teams, team_idx, home_team, away_team, max_goals_display,
-                    use_hydration_adjustment, use_dixon_coles
+                    use_hydration_adjustment, use_dixon_coles, neutral_venue
                 )
                 if sm_bayes is not None:
                     if use_dynamic_adjustment:
-                        sm_bayes_original = sm_bayes.copy()
                         sm_bayes = ajustar_por_gol_temprano(
                             sm_bayes, lam_h_bayes, lam_a_bayes,
                             home_team, away_team,
                             underdog_scored_first, minuto_gol,
                             favorito_elo, underdog_elo
                         )
-                    else:
-                        sm_bayes_original = None
+                    
+                    if use_momentum_adjustment:
+                        es_favorito_local = elo_h > elo_a
+                        lam_h_bayes, lam_a_bayes = ajustar_por_momentum(
+                            lam_h_bayes, lam_a_bayes,
+                            home_team, away_team,
+                            minuto_gol=minuto_gol_favorito,
+                            es_favorito_local=es_favorito_local,
+                            llegadas_previas_h=llegadas_previas_h if 'llegadas_previas_h' in locals() else None,
+                            llegadas_previas_a=llegadas_previas_a if 'llegadas_previas_a' in locals() else None,
+                            marcador_actual={'home': 0, 'away': 0}
+                        )
+                        goals = np.arange(0, max_goals_display + 1)
+                        sm_bayes = np.outer(poisson.pmf(goals, lam_h_bayes), poisson.pmf(goals, lam_a_bayes))
+                        suma = sm_bayes.sum()
+                        if suma > 0:
+                            sm_bayes = sm_bayes / suma
+                    
                     results['bayes'] = {
-                        'score_matrix': sm_bayes, 'lam_h': lam_h_bayes, 'lam_a': lam_a_bayes,
-                        'att_ratings': att_ratings, 'def_ratings': def_ratings,
-                        'original_matrix': sm_bayes_original
+                        'score_matrix': sm_bayes,
+                        'lam_h': lam_h_bayes,
+                        'lam_a': lam_a_bayes,
+                        'att_ratings': att_ratings,
+                        'def_ratings': def_ratings
                     }
                 else:
                     errores.append("Bayesiano falló")
@@ -1617,14 +1694,7 @@ if predict_btn:
 
     if results:
         results['teams'] = (home_team, away_team)
-        results['dynamic_adjustment'] = use_dynamic_adjustment
-        if use_dynamic_adjustment:
-            results['dynamic_info'] = {
-                'underdog_scored': underdog_scored_first,
-                'minuto': minuto_gol,
-                'favorito_elo': favorito_elo,
-                'underdog_elo': underdog_elo
-            }
+        results['elo'] = {'home': elo_h, 'away': elo_a}
         st.session_state.results = results
         st.success("✅ Predicción completada!")
         if errores:
@@ -1638,28 +1708,20 @@ if predict_btn:
 if 'results' in st.session_state and st.session_state.results:
     results = st.session_state.results
     home_team, away_team = results['teams']
-    use_dynamic_adjustment = results.get('dynamic_adjustment', False)
-
-    # Banner de ajuste dinámico - MEJORADO
-    if use_dynamic_adjustment and results.get('dynamic_info', {}).get('underdog_scored', False):
-        info = results['dynamic_info']
-        underdog = 'local' if elo_h < elo_a else 'visitante'
-        st.info(
-            f"⚡ **Ajuste por gol temprano activado** — El {underdog} anotó en el minuto **{info['minuto']}**.\n\n"
-            f"📊 Diferencia de Elo: **{abs(info['favorito_elo'] - info['underdog_elo']):.0f} puntos** — Esto ha aumentado la probabilidad de marcadores con más goles."
-        )
+    elo_h = results['elo']['home']
+    elo_a = results['elo']['away']
 
     st.markdown("---")
 
-    # Resumen de predicción - MEJORADO
+    # Resumen de predicción
     st.subheader("📊 Resumen de Predicción")
 
-    model_count = len([m for m in results.keys() if m not in ['teams', 'dynamic_adjustment', 'dynamic_info']])
+    model_count = len([m for m in results.keys() if m not in ['teams', 'elo']])
     cols = st.columns(min(model_count, 4))
 
     col_idx = 0
     for model_name, model_data in results.items():
-        if model_name in ['teams', 'dynamic_adjustment', 'dynamic_info']:
+        if model_name in ['teams', 'elo']:
             continue
         with cols[col_idx % len(cols)]:
             display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
@@ -1678,7 +1740,7 @@ if 'results' in st.session_state and st.session_state.results:
     col_idx = 0
 
     for model_name, model_data in results.items():
-        if model_name in ['teams', 'dynamic_adjustment', 'dynamic_info']:
+        if model_name in ['teams', 'elo']:
             continue
 
         with model_cols[col_idx % len(model_cols)]:
@@ -1694,7 +1756,6 @@ if 'results' in st.session_state and st.session_state.results:
             draw = np.sum(np.diag(sm))
             away_win = np.sum(np.triu(sm, k=1))
 
-            # Probabilidades con barras visuales - MEJORADO
             prob_cols = st.columns(3)
             with prob_cols[0]:
                 st.metric(f"🏠 {home_team[:8]}", f"{home_win:.1%}")
@@ -1709,46 +1770,20 @@ if 'results' in st.session_state and st.session_state.results:
             top_idx = np.unravel_index(model_data['score_matrix'][:7,:7].argmax(), (7,7))
             st.info(f"🎯 Marcador más probable: **{top_idx[0]}-{top_idx[1]}**")
 
-            # Correcciones aplicadas - MEJORADO
+            # Correcciones aplicadas
             correcciones = []
             if use_dixon_coles:
-                correcciones.append("🔧 DC (ρ=-0.039)")
+                correcciones.append("🔧 DC")
             if use_hydration_adjustment:
                 correcciones.append("💧 4 tiempos")
-            if use_dynamic_adjustment and results.get('dynamic_info', {}).get('underdog_scored', False):
+            if use_dynamic_adjustment:
                 correcciones.append("⚡ Gol temprano")
+            if use_momentum_adjustment:
+                correcciones.append("⚡ Momentum")
+            if neutral_venue:
+                correcciones.append("🏟️ Neutral")
             if correcciones:
-                st.caption(f"📌 Ajustes aplicados: {' · '.join(correcciones)}")
-
-            # Comparación ajuste dinámico - MEJORADO
-            if use_dynamic_adjustment and model_data.get('original_matrix') is not None:
-                with st.expander("📊 Efecto del ajuste por gol temprano"):
-                    orig_sm = model_data['original_matrix'][:7, :7]
-                    adj_sm = model_data['score_matrix'][:7, :7]
-                    
-                    # Calcular cambio en la probabilidad de empate
-                    orig_draw = np.sum(np.diag(orig_sm))
-                    adj_draw = np.sum(np.diag(adj_sm))
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.caption("🔵 Antes del ajuste")
-                        st.metric("Probabilidad de empate", f"{orig_draw:.1%}")
-                        # Mostrar top 5 original
-                        orig_top = np.argsort(orig_sm.ravel())[::-1][:5]
-                        orig_labels = [f"{r}-{c}" for r, c in np.unravel_index(orig_top, orig_sm.shape)]
-                        orig_probs = orig_sm.ravel()[orig_top]
-                        for label, prob in zip(orig_labels, orig_probs):
-                            st.write(f"• {label}: {prob*100:.1f}%")
-                    with col2:
-                        st.caption("🟢 Después del ajuste")
-                        st.metric("Probabilidad de empate", f"{adj_draw:.1%}", delta=f"{adj_draw - orig_draw:.1%}")
-                        # Mostrar top 5 ajustado
-                        adj_top = np.argsort(adj_sm.ravel())[::-1][:5]
-                        adj_labels = [f"{r}-{c}" for r, c in np.unravel_index(adj_top, adj_sm.shape)]
-                        adj_probs = adj_sm.ravel()[adj_top]
-                        for label, prob in zip(adj_labels, adj_probs):
-                            st.write(f"• {label}: {prob*100:.1f}%")
+                st.caption(f"📌 Ajustes: {' · '.join(correcciones)}")
 
             if model_name == 'xgb' and 'team_stats' in model_data:
                 with st.expander("📈 Estadísticas de los equipos (ESPN)"):
@@ -1781,7 +1816,7 @@ if 'results' in st.session_state and st.session_state.results:
 
         comp_data = []
         for model_name, model_data in results.items():
-            if model_name in ['teams', 'dynamic_adjustment', 'dynamic_info']:
+            if model_name in ['teams', 'elo']:
                 continue
             sm = model_data['score_matrix'][:7, :7]
             top_idx = np.unravel_index(sm.argmax(), sm.shape)
@@ -1797,7 +1832,7 @@ if 'results' in st.session_state and st.session_state.results:
         st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
 # ============================================================================
-# FOOTER REDISEÑADO - CON SEPARADORES MEJORADOS
+# FOOTER REDISEÑADO
 # ============================================================================
 st.markdown("---")
 st.markdown("""
@@ -1805,11 +1840,13 @@ st.markdown("""
     <p>
         ⚽ Datos: martj42/international_results
         <span class="separator">·</span>
-        🔧 Dixon-Coles (ρ=-0.039)
+        🔧 Dixon-Coles (ρ=-0.13)
         <span class="separator">·</span>
         💧 Ajuste por 4 tiempos
         <span class="separator">·</span>
         ⚡ Gol temprano del underdog
+        <span class="separator">·</span>
+        ⚡ Momentum
     </p>
     <p style="margin-top: 8px;">
         <a href="https://rpalafoxfalcoproject.streamlit.app" target="_blank">🔗 Abrir en nueva ventana</a>
