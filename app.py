@@ -31,7 +31,7 @@ st.markdown("""
 
     /* Variables de color */
     :root {
-        --bg-primary: #0a0e1a;
+        --bg-primary: #02091d;
         --bg-secondary: #111827;
         --bg-card: #1a1f2e;
         --bg-card-hover: #1e2538;
@@ -41,8 +41,8 @@ st.markdown("""
         --text-secondary: #94a3b8;
         --text-muted: #64748b;
         --accent-cyan: #00d4ff;
-        --accent-gold: #ffc107;
-        --accent-green: #22c55e;
+        --accent-gold: #d2c80f;
+        --accent-green: #076027;
         --accent-red: #ef4444;
         --accent-purple: #a855f7;
         --shadow-glow: 0 0 30px rgba(0, 212, 255, 0.05);
@@ -50,7 +50,7 @@ st.markdown("""
 
     /* Reset de fondo */
     .stApp {
-        background: var(--bg-primary);
+       background: linear-gradient(to bottom,  rgba(89,106,114,1) 0%,rgba(206,220,231,1) 100%);
         font-family: 'Inter', sans-serif;
     }
 
@@ -199,13 +199,13 @@ st.markdown("""
         background: transparent !important;
     }
     .stAlert [data-testid="stAlertContentSuccess"] {
-        background: rgba(34, 197, 94, 0.1) !important;
-        border: 1px solid rgba(34, 197, 94, 0.2) !important;
+        background: rgba(34, 197, 94, 0.6) !important;
+        border: 1px solid rgba(34, 197, 94, 0.5) !important;
         border-radius: 12px !important;
     }
     .stAlert [data-testid="stAlertContentInfo"] {
-        background: rgba(0, 212, 255, 0.1) !important;
-        border: 1px solid rgba(0, 212, 255, 0.2) !important;
+        background: rgba(0, 212, 255, 0.6) !important;
+        border: 1px solid rgba(0, 212, 255, 0.5) !important;
         border-radius: 12px !important;
     }
 
@@ -259,7 +259,7 @@ st.markdown("""
         font-size: 2.5rem !important;
         letter-spacing: 3px !important;
         margin: 0 !important;
-        background: linear-gradient(135deg, #fff, #00d4ff);
+        background: linear-gradient(135deg, #020202, #02085b);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
