@@ -58,23 +58,61 @@ st.markdown("""
 
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background: radial-gradient(
-            ellipse at 0% 50%,
-            #1a1a3e 0%,
-            #0a0e1a 60%,
-            #05080f 100%
+        background: linear-gradient(
+            170deg,
+            #0f0c29 0%,
+            #1a1a3e 30%,
+            #24243e 60%,
+            #0f0c29 100%
         ) !important;
-        border-right: 1px solid rgba(0, 212, 255, 0.08);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
     [data-testid="stSidebar"] .stMarkdown {
-        color: var(--text-secondary);
+         color: #e2e8f0;
     }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: var(--text-primary) !important;
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3 {
+        color: #ffffff !important;
         font-family: 'Inter', sans-serif !important;
         font-weight: 700 !important;
+        text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
     }
 
+    [data-testid="stSidebar"] .stSelectbox > div > div {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+    }
+    
+    [data-testid="stSidebar"] .stSelectbox > div > div:hover {
+        border-color: #00d4ff !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+    }
+    
+    /* Labels y captions en el sidebar */
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] .stAlert {
+        color: #94a3b8 !important;
+    }
+    
+    /* Checkboxes en el sidebar */
+    [data-testid="stSidebar"] .stCheckbox label {
+        color: #e2e8f0 !important;
+    }
+    
+    /* Slider en el sidebar */
+    [data-testid="stSidebar"] .stSlider > div > div > div {
+        background: #00d4ff !important;
+    }
+    
+    /* Expander en el sidebar */
+    [data-testid="stSidebar"] .streamlit-expanderHeader {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        color: #ffffff !important;
+    }
     /* Headers */
     h1, h2, h3, h4 {
         font-family: 'Inter', sans-serif !important;
