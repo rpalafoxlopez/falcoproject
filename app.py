@@ -949,7 +949,7 @@ if 'results' in st.session_state and st.session_state.results:
 # FOOTER
 # ============================================================================
 st.markdown("---")
-st.caption("⚽ Datos: martj42/international_results | Dixon-Coles (ρ=-0.039) | 💧 Ajuste por 4 tiempos | ⚡ Gol temprano del underdog")
+st.caption(" Creado con ⚽ por <a href="https://satohachi.rpalafox.com/">rpalafox.com</a> ")
 
 with st.expander("ℹ️ Información del sistema"):
     st.write(f"**Python:** {sys.version}")
