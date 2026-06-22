@@ -1,4 +1,4 @@
-# app.py - Predicción Mundial 2026 con Dixon-Coles y ajuste híbrido
+# app.py - Predicción Mundial 2026 - Versión Completa con Dixon-Coles + Gol Temprano
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -10,9 +10,6 @@ import platform
 import requests
 import json
 from datetime import datetime, timedelta
-import pymc as pm
-import arviz as az
-import pytensor.tensor as pt
 
 # ⚠️ IMPORTANTE: set_page_config DEBE SER LA PRIMERA INSTRUCCIÓN DE STREAMLIT
 st.set_page_config(
@@ -60,59 +57,7 @@ WORLD_CUP_2026_TEAMS = sorted([team for team in WORLD_CUP_2026_TEAMS])
 # ============================================================================
 # PARÁMETROS DIXON-COLES (estimados vía MCMC)
 # ============================================================================
-# ρ estimado globalmente: -0.039 (HDI 94%: [-0.064, -0.013])
 DIXON_COLES_RHO = -0.039
-
-def dixon_coles_factor(x, y, lam_h, lam_a, rho):
-    """
-    Factor de corrección de Dixon-Coles para la probabilidad conjunta.
-    """
-    # Crear máscaras para las 4 celdas críticas
-    mask_00 = (x == 0) & (y == 0)
-    mask_01 = (x == 0) & (y == 1)
-    mask_10 = (x == 1) & (y == 0)
-    mask_11 = (x == 1) & (y == 1)
-    
-    # Calcular factor τ para cada celda
-    tau = np.ones_like(x, dtype=float)
-    
-    # 0-0: 1 - λ_home * λ_away * ρ
-    tau[mask_00] = 1 - lam_h * lam_a * rho
-    
-    # 0-1: 1 + λ_home * ρ
-    tau[mask_01] = 1 + lam_h * rho
-    
-    # 1-0: 1 + λ_away * ρ
-    tau[mask_10] = 1 + lam_a * rho
-    
-    # 1-1: 1 - ρ
-    tau[mask_11] = 1 - rho
-    
-    # Asegurar que τ sea positivo (ρ negativo garantiza esto para las 4 celdas)
-    tau = np.maximum(tau, 0.01)
-    
-    return tau
-
-def aplicar_dixon_coles(score_matrix, lam_h, lam_a, rho=DIXON_COLES_RHO):
-    """
-    Aplica la corrección de Dixon-Coles a una matriz de marcadores.
-    """
-    max_g = score_matrix.shape[0] - 1
-    goals = np.arange(0, max_g + 1)
-    H, A = np.meshgrid(goals, goals, indexing='ij')
-    
-    # Calcular factor τ para cada celda
-    tau = dixon_coles_factor(H, A, lam_h, lam_a, rho)
-    
-    # Aplicar corrección
-    score_matrix_corregida = score_matrix * tau
-    
-    # Re-normalizar para que sume 1
-    suma = score_matrix_corregida.sum()
-    if suma > 0:
-        score_matrix_corregida = score_matrix_corregida / suma
-    
-    return score_matrix_corregida
 
 # ============================================================================
 # FUNCIÓN DE AJUSTE HÍBRIDO (4 tiempos con pausas de hidratación)
@@ -133,6 +78,119 @@ def ajustar_por_pausas_hidratacion(lam_h, lam_a):
     lam_a_ajustado = lam_a_ajustado * (1 - factor_contraccion) + media_a_general * factor_contraccion
     
     return lam_h_ajustado, lam_a_ajustado
+
+# ============================================================================
+# FUNCIÓN DIXON-COLES
+# ============================================================================
+def dixon_coles_factor(x, y, lam_h, lam_a, rho):
+    """
+    Factor de corrección de Dixon-Coles para la probabilidad conjunta.
+    """
+    mask_00 = (x == 0) & (y == 0)
+    mask_01 = (x == 0) & (y == 1)
+    mask_10 = (x == 1) & (y == 0)
+    mask_11 = (x == 1) & (y == 1)
+    
+    tau = np.ones_like(x, dtype=float)
+    
+    tau[mask_00] = 1 - lam_h * lam_a * rho
+    tau[mask_01] = 1 + lam_h * rho
+    tau[mask_10] = 1 + lam_a * rho
+    tau[mask_11] = 1 - rho
+    
+    tau = np.maximum(tau, 0.01)
+    
+    return tau
+
+def aplicar_dixon_coles(score_matrix, lam_h, lam_a, rho=DIXON_COLES_RHO):
+    """
+    Aplica la corrección de Dixon-Coles a una matriz de marcadores.
+    """
+    max_g = score_matrix.shape[0] - 1
+    goals = np.arange(0, max_g + 1)
+    H, A = np.meshgrid(goals, goals, indexing='ij')
+    
+    tau = dixon_coles_factor(H, A, lam_h, lam_a, rho)
+    score_matrix_corregida = score_matrix * tau
+    
+    suma = score_matrix_corregida.sum()
+    if suma > 0:
+        score_matrix_corregida = score_matrix_corregida / suma
+    
+    return score_matrix_corregida
+
+# ============================================================================
+# FUNCIÓN DE AJUSTE POR GOL TEMPRANO DEL UNDERDOG
+# ============================================================================
+def ajustar_por_gol_temprano(score_matrix, lam_h, lam_a, home_team, away_team,
+                             underdog_scored_first, minuto_gol, favorito_elo, underdog_elo):
+    """
+    Ajusta la matriz de marcadores si el underdog anota primero.
+    """
+    if not underdog_scored_first:
+        return score_matrix
+    
+    # Determinar favorito basado en λ y Elo combinados
+    if lam_h > lam_a:
+        favorito = 'home'
+        underdog = 'away'
+        diff_lam = lam_h - lam_a
+    else:
+        favorito = 'away'
+        underdog = 'home'
+        diff_lam = lam_a - lam_h
+    
+    # Factores de ajuste
+    if minuto_gol <= 15:
+        factor_tiempo = 1.0
+    elif minuto_gol <= 30:
+        factor_tiempo = 0.8
+    elif minuto_gol <= 45:
+        factor_tiempo = 0.6
+    else:
+        factor_tiempo = 0.3
+    
+    factor_sorpresa = min(1.0, diff_lam * 0.5)
+    factor_ajuste = factor_tiempo * factor_sorpresa
+    
+    if factor_ajuste < 0.1:
+        return score_matrix
+    
+    max_g = score_matrix.shape[0] - 1
+    ajuste = np.ones_like(score_matrix)
+    
+    # Reducir marcadores bajos (0-0, 1-0, 0-1, 2-0, 0-2)
+    for i in range(min(3, max_g + 1)):
+        for j in range(min(3, max_g + 1)):
+            if i + j <= 2:
+                ajuste[i, j] = 1 - factor_ajuste * 0.3
+    
+    # Aumentar marcadores de remontada (2-1, 1-2, 2-2, 3-1, 1-3, 3-2, 2-3)
+    for i in range(1, min(5, max_g + 1)):
+        for j in range(1, min(5, max_g + 1)):
+            if 3 <= i + j <= 6:
+                ajuste[i, j] = 1 + factor_ajuste * 0.25
+    
+    # Si el underdog es visitante: favorecer 1-1, 2-1, 3-1
+    if underdog == 'away':
+        for i in range(1, min(5, max_g + 1)):
+            for j in range(1, min(3, max_g + 1)):
+                if i >= j:
+                    ajuste[i, j] = 1 + factor_ajuste * 0.2
+    
+    # Si el underdog es local: favorecer 1-1, 1-2, 1-3
+    if underdog == 'home':
+        for i in range(1, min(3, max_g + 1)):
+            for j in range(1, min(5, max_g + 1)):
+                if j >= i:
+                    ajuste[i, j] = 1 + factor_ajuste * 0.2
+    
+    score_matrix_ajustada = score_matrix * ajuste
+    suma = score_matrix_ajustada.sum()
+    if suma > 0:
+        score_matrix_ajustada = score_matrix_ajustada / suma
+    
+    return score_matrix_ajustada
 
 # ============================================================================
 # CONEXIÓN A ESPN
@@ -200,9 +258,23 @@ def get_espn_team_stats(team_name):
         'Brazil': {'attack': 2.8, 'defense': 0.7, 'elo': 2100},
         'Argentina': {'attack': 2.6, 'defense': 0.8, 'elo': 2080},
         'France': {'attack': 2.4, 'defense': 0.9, 'elo': 2040},
+        'Germany': {'attack': 2.3, 'defense': 0.9, 'elo': 2020},
+        'England': {'attack': 2.2, 'defense': 0.9, 'elo': 2000},
+        'Netherlands': {'attack': 2.1, 'defense': 1.0, 'elo': 1980},
+        'Portugal': {'attack': 2.0, 'defense': 1.0, 'elo': 1960},
+        'Italy': {'attack': 1.9, 'defense': 0.9, 'elo': 1940},
+        'Belgium': {'attack': 1.9, 'defense': 1.1, 'elo': 1920},
+        'Austria': {'attack': 1.6, 'defense': 1.2, 'elo': 1780},
     }
     
-    synonyms = {'Cape Verde': 'Cabo Verde', 'USA': 'USA', 'United States': 'USA', 'Czechia': 'Czech Republic'}
+    synonyms = {
+        'Cape Verde': 'Cabo Verde',
+        'USA': 'USA',
+        'United States': 'USA',
+        'Czechia': 'Czech Republic',
+        'Côte d\'Ivoire': 'Ivory Coast'
+    }
+    
     search_name = synonyms.get(team_name, team_name)
     
     return stats_cache.get(search_name, {'attack': 1.5, 'defense': 1.3, 'elo': 1750})
@@ -227,7 +299,7 @@ except ImportError:
 
 # Título de la app
 st.title("⚽ Predicción de Marcadores - Mundial FIFA 2026")
-st.markdown(f"🐍 Python {sys.version.split()[0]} | PyMC: {'✅' if PYMC_AVAILABLE else '❌'} | SKLearn: {'✅' if SKLEARN_AVAILABLE else '❌'} | DC: ✅")
+st.markdown(f"🐍 Python {sys.version.split()[0]} | PyMC: {'✅' if PYMC_AVAILABLE else '❌'} | SKLearn: {'✅' if SKLEARN_AVAILABLE else '❌'}")
 st.markdown("---")
 
 if not PYMC_AVAILABLE:
@@ -266,6 +338,9 @@ if len(wc_teams_in_data) < 10:
 
 st.sidebar.caption(f"🏆 {len(wc_teams_in_data)} selecciones clasificadas")
 
+# ============================================================================
+# SIDEBAR - Selectores de equipos
+# ============================================================================
 with st.sidebar:
     st.subheader("🏟️ Selecciona los equipos")
     
@@ -296,10 +371,26 @@ with st.sidebar:
     use_xgboost = st.checkbox("✅ XGBoost", value=True)
     use_bayesian = st.checkbox("✅ Bayesiano" if PYMC_AVAILABLE else "❌ Bayesiano (no disponible)", 
                                value=PYMC_AVAILABLE, disabled=not PYMC_AVAILABLE)
-    use_dixon_coles = st.checkbox("🔧 Corrección Dixon-Coles (ρ=-0.039)", value=True)
-    use_hydration_adjustment = st.checkbox("💧 Ajuste por pausas de hidratación (4 tiempos)", value=True)
     
-    max_goals_display = st.slider("Máximo de goles a mostrar", 4, 10, 7)
+    st.markdown("---")
+    st.subheader("🔧 Correcciones")
+    
+    use_dixon_coles = st.checkbox("🔧 Dixon-Coles (ρ=-0.039)", value=True, help="Corrige la subestimación de empates")
+    use_hydration_adjustment = st.checkbox("💧 Pausas de hidratación (4 tiempos)", value=True)
+    
+    st.markdown("---")
+    st.subheader("⚡ Ajuste por Gol Temprano del Underdog")
+    
+    use_dynamic_adjustment = st.checkbox("⚡ Activar ajuste dinámico", value=False)
+    
+    if use_dynamic_adjustment:
+        underdog_scored_first = st.checkbox("🏃 El underdog anotó primero", value=False)
+        minuto_gol = st.slider("⏱️ Minuto del primer gol", 1, 90, 15, help="Minuto en que el underdog anotó")
+        
+        st.caption("💡 Si el underdog anota primero, el partido se vuelve más abierto. Este ajuste aumenta la probabilidad de marcadores con más goles.")
+    
+    st.markdown("---")
+    max_goals_display = st.slider("📊 Máximo de goles a mostrar", 4, 10, 7)
     
     st.markdown("---")
     if fixture_data:
@@ -313,7 +404,7 @@ with st.sidebar:
 # ============================================================================
 # FUNCIONES DE PREDICCIÓN
 # ============================================================================
-def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8, 
+def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8,
                          use_hydration=True, use_dixon_coles=True):
     if not PYMC_AVAILABLE:
         return None, None, None, None, None
@@ -374,8 +465,6 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
             suma = score_matrix.sum()
             if suma > 0:
                 score_matrix = score_matrix / suma
-            else:
-                score_matrix = np.ones_like(score_matrix) / score_matrix.size
         
         att_ratings = {team: post["attack"].sel(team=team).mean().item() for team in teams}
         def_ratings = {team: post["defense"].sel(team=team).mean().item() for team in teams}
@@ -510,8 +599,6 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             suma = score_matrix.sum()
             if suma > 0:
                 score_matrix = score_matrix / suma
-            else:
-                score_matrix = np.ones_like(score_matrix) / score_matrix.size
         
         team_stats = {
             home_team: {"elo": elo_h, "attack": stats_h.get('attack', 1.5), "defense": stats_h.get('defense', 1.3)},
@@ -609,6 +696,19 @@ if predict_btn:
             st.error(f"❌ {away_team} no tiene suficientes partidos")
             st.stop()
     
+    # Obtener Elos para el ajuste dinámico
+    stats_h = get_espn_team_stats(home_team)
+    stats_a = get_espn_team_stats(away_team)
+    elo_h = stats_h.get('elo', 1750)
+    elo_a = stats_a.get('elo', 1750)
+    
+    if elo_h > elo_a:
+        favorito_elo = elo_h
+        underdog_elo = elo_a
+    else:
+        favorito_elo = elo_a
+        underdog_elo = elo_h
+    
     results = {}
     errores = []
     
@@ -622,11 +722,24 @@ if predict_btn:
                     use_hydration_adjustment, use_dixon_coles
                 )
                 if sm_xgb is not None:
+                    # Aplicar ajuste dinámico si está activado
+                    if use_dynamic_adjustment:
+                        sm_xgb_original = sm_xgb.copy()
+                        sm_xgb = ajustar_por_gol_temprano(
+                            sm_xgb, lam_h_xgb, lam_a_xgb,
+                            home_team, away_team,
+                            underdog_scored_first, minuto_gol,
+                            favorito_elo, underdog_elo
+                        )
+                    else:
+                        sm_xgb_original = None
+                    
                     results['xgb'] = {
                         'score_matrix': sm_xgb,
                         'lam_h': lam_h_xgb,
                         'lam_a': lam_a_xgb,
-                        'team_stats': team_stats
+                        'team_stats': team_stats,
+                        'original_matrix': sm_xgb_original
                     }
                 else:
                     errores.append("XGBoost falló")
@@ -641,12 +754,24 @@ if predict_btn:
                     use_hydration_adjustment, use_dixon_coles
                 )
                 if sm_bayes is not None:
+                    if use_dynamic_adjustment:
+                        sm_bayes_original = sm_bayes.copy()
+                        sm_bayes = ajustar_por_gol_temprano(
+                            sm_bayes, lam_h_bayes, lam_a_bayes,
+                            home_team, away_team,
+                            underdog_scored_first, minuto_gol,
+                            favorito_elo, underdog_elo
+                        )
+                    else:
+                        sm_bayes_original = None
+                    
                     results['bayes'] = {
                         'score_matrix': sm_bayes,
                         'lam_h': lam_h_bayes,
                         'lam_a': lam_a_bayes,
                         'att_ratings': att_ratings,
-                        'def_ratings': def_ratings
+                        'def_ratings': def_ratings,
+                        'original_matrix': sm_bayes_original
                     }
                 else:
                     errores.append("Bayesiano falló")
@@ -655,6 +780,14 @@ if predict_btn:
     
     if results:
         results['teams'] = (home_team, away_team)
+        results['dynamic_adjustment'] = use_dynamic_adjustment
+        if use_dynamic_adjustment:
+            results['dynamic_info'] = {
+                'underdog_scored': underdog_scored_first,
+                'minuto': minuto_gol,
+                'favorito_elo': favorito_elo,
+                'underdog_elo': underdog_elo
+            }
         st.session_state.results = results
         st.success("✅ Predicción completada!")
         if errores:
@@ -668,16 +801,28 @@ if predict_btn:
 if 'results' in st.session_state and st.session_state.results:
     results = st.session_state.results
     home_team, away_team = results['teams']
+    use_dynamic_adjustment = results.get('dynamic_adjustment', False)
+    
+    # Mostrar información del ajuste dinámico si está activo
+    if use_dynamic_adjustment and results.get('dynamic_info', {}).get('underdog_scored', False):
+        info = results['dynamic_info']
+        underdog = 'local' if elo_h < elo_a else 'visitante'
+        st.info(
+            f"⚡ **Ajuste por gol temprano activado**\n\n"
+            f"El {underdog} anotó en el minuto **{info['minuto']}**. "
+            f"Esto ha aumentado la probabilidad de marcadores con más goles.\n\n"
+            f"📊 Diferencia de Elo: {abs(info['favorito_elo'] - info['underdog_elo']):.0f} puntos"
+        )
     
     st.markdown("---")
     st.subheader("📊 Resumen de Predicción")
     
-    model_count = len([m for m in results.keys() if m != 'teams'])
+    model_count = len([m for m in results.keys() if m not in ['teams', 'dynamic_adjustment', 'dynamic_info']])
     cols = st.columns(min(model_count, 4))
     
     col_idx = 0
     for model_name, model_data in results.items():
-        if model_name == 'teams':
+        if model_name in ['teams', 'dynamic_adjustment', 'dynamic_info']:
             continue
         with cols[col_idx % len(cols)]:
             display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
@@ -694,7 +839,7 @@ if 'results' in st.session_state and st.session_state.results:
     col_idx = 0
     
     for model_name, model_data in results.items():
-        if model_name == 'teams':
+        if model_name in ['teams', 'dynamic_adjustment', 'dynamic_info']:
             continue
         
         with model_cols[col_idx % len(model_cols)]:
@@ -718,9 +863,41 @@ if 'results' in st.session_state and st.session_state.results:
             top_idx = np.unravel_index(model_data['score_matrix'][:7,:7].argmax(), (7,7))
             st.info(f"🎯 Marcador más probable: **{top_idx[0]}-{top_idx[1]}**")
             
-            # Añadir indicador de Dixon-Coles
+            # Mostrar info de correcciones
+            correcciones = []
             if use_dixon_coles:
-                st.caption("🔧 Corregido con Dixon-Coles (ρ=-0.039)")
+                correcciones.append("DC (ρ=-0.039)")
+            if use_hydration_adjustment:
+                correcciones.append("4 tiempos")
+            if use_dynamic_adjustment and results.get('dynamic_info', {}).get('underdog_scored', False):
+                correcciones.append("⚡ Gol temprano")
+            
+            if correcciones:
+                st.caption(f"🔧 {', '.join(correcciones)}")
+            
+            # Comparación con ajuste dinámico
+            if use_dynamic_adjustment and model_data.get('original_matrix') is not None:
+                with st.expander("📊 Efecto del ajuste por gol temprano"):
+                    orig_sm = model_data['original_matrix'][:7, :7]
+                    adj_sm = model_data['score_matrix'][:7, :7]
+                    
+                    # Mostrar cambio en top 5
+                    orig_top = np.argsort(orig_sm.ravel())[::-1][:5]
+                    adj_top = np.argsort(adj_sm.ravel())[::-1][:5]
+                    orig_labels = [f"{r}-{c}" for r, c in np.unravel_index(orig_top, orig_sm.shape)]
+                    adj_labels = [f"{r}-{c}" for r, c in np.unravel_index(adj_top, adj_sm.shape)]
+                    orig_probs = orig_sm.ravel()[orig_top]
+                    adj_probs = adj_sm.ravel()[adj_top]
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.caption("Antes del ajuste")
+                        for label, prob in zip(orig_labels, orig_probs):
+                            st.write(f"{label}: {prob*100:.1f}%")
+                    with col2:
+                        st.caption("Después del ajuste")
+                        for label, prob in zip(adj_labels, adj_probs):
+                            st.write(f"{label}: {prob*100:.1f}%")
             
             if model_name == 'xgb' and 'team_stats' in model_data:
                 with st.expander("📈 Estadísticas de los equipos"):
@@ -753,7 +930,7 @@ if 'results' in st.session_state and st.session_state.results:
         
         comp_data = []
         for model_name, model_data in results.items():
-            if model_name == 'teams':
+            if model_name in ['teams', 'dynamic_adjustment', 'dynamic_info']:
                 continue
             sm = model_data['score_matrix'][:7, :7]
             top_idx = np.unravel_index(sm.argmax(), sm.shape)
@@ -772,7 +949,7 @@ if 'results' in st.session_state and st.session_state.results:
 # FOOTER
 # ============================================================================
 st.markdown("---")
-st.caption("⚽ Datos: martj42/international_results | Dixon-Coles (ρ=-0.039) | 💧 Ajuste por 4 tiempos")
+st.caption("⚽ Datos: martj42/international_results | Dixon-Coles (ρ=-0.039) | 💧 Ajuste por 4 tiempos | ⚡ Gol temprano del underdog")
 
 with st.expander("ℹ️ Información del sistema"):
     st.write(f"**Python:** {sys.version}")
@@ -782,3 +959,4 @@ with st.expander("ℹ️ Información del sistema"):
     st.write(f"**Equipos clasificados:** {len(wc_teams_in_data)}")
     if PYMC_AVAILABLE:
         st.write(f"**PyMC versión:** {pm.__version__}")
+        st.write(f"**ArviZ versión:** {az.__version__}")
