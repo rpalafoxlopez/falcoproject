@@ -58,13 +58,20 @@ st.markdown("""
 
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background: linear-gradient(
-                        to bottom,
-                        rgba(17,24,39,1) 0%,
-                        rgba(17,24,39,0.7) 70%,
-                        rgba(17,24,39,0) 100%
-                    ) !important;
-        border-right: 1px solid var(--border-subtle);
+       background: 
+            linear-gradient(
+                135deg,
+                rgba(0, 212, 255, 0.03) 0%,
+                rgba(0, 212, 255, 0.01) 30%,
+                transparent 70%
+            ),
+            linear-gradient(
+                180deg,
+                #111827 0%,
+                #1a1f2e 50%,
+                #0f172a 100%
+            ) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.03);
     }
     [data-testid="stSidebar"] .stMarkdown , 
     [data-testid="stSidebar"] .st-b6 {
