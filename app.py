@@ -1,5 +1,6 @@
 # app.py - Predicción Mundial 2026 - Versión Modular
 import streamlit as st
+import pandas as pd  
 from modules import (
     config,
     data_loader,
