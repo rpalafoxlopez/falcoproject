@@ -10,6 +10,7 @@ import sys
 import requests
 import json
 from datetime import datetime, timedelta
+import pytz
 
 # ⚠️ set_page_config DEBE SER LA PRIMERA INSTRUCCIÓN DE STREAMLIT
 st.set_page_config(
@@ -334,6 +335,7 @@ st.markdown("""
     .status-item .value.cyan { color: var(--accent-cyan); }
     .status-item .value.gold { color: var(--accent-gold); }
     .status-item .value.green { color: var(--accent-green); }
+    .status-item .value.red { color: var(--accent-red); }
 
     /* Probability bars - MEJORADO */
     .prob-bar {
@@ -773,7 +775,8 @@ with st.sidebar:
             away_idx = 1 if wc_teams_in_data[1] != home_team else 0
             away_team = wc_teams_in_data[away_idx]
 
-    match_date = st.date_input("📅 Fecha del Partido", pd.to_datetime("2026-06-24"))
+    mexico_tz = pytz.timezone('America/Mexico_City')
+    match_date = st.date_input("📅 Fecha del Partido", datetime.now(mexico_tz).date())
     train_start = st.selectbox("📊 Ventana de entrenamiento", ["2018-01-01", "2016-01-01", "2014-01-01", "2010-01-01"], index=0)
 
     st.markdown("---")
@@ -812,7 +815,7 @@ with st.sidebar:
     predict_btn = st.button("🔮 Predecir", type="primary", use_container_width=True)
 
 # ============================================================================
-# FUNCIONES DE PREDICCIÓN (sin cambios funcionales)
+# FUNCIONES DE PREDICCIÓN
 # ============================================================================
 def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8,
                          use_hydration=True, use_dixon_coles=True):
@@ -992,12 +995,10 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     else:
         sm_disp = sm[:max_display + 1, :max_display + 1]
 
-    # Tamaño aumentado para mejor visualización
     fig, axes = plt.subplots(1, 3, figsize=(18, 5.5))
     fig.patch.set_facecolor('#0a0e1a')
     fig.suptitle(f"{home_team} vs {away_team} — {title}", fontsize=16, fontweight="bold", color='white', y=0.98)
 
-    # Colormap personalizado
     from matplotlib.colors import LinearSegmentedColormap
     colors = ['#0a0e1a', '#1a3a6b', '#2d5a9a', '#00d4ff', '#ffffff']
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
@@ -1019,25 +1020,24 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     ax0.set_ylabel(f"Goles {home_team}", color='#94a3b8', fontsize=11)
     ax0.set_title("Heatmap de Marcadores", fontsize=12, color='white', pad=10)
     ax0.tick_params(colors='#94a3b8')
+    
     for spine in ax0.spines.values():
-        spine.set_color('rgba(255,255,255,0.1)')
+        spine.set_color((1, 1, 1, 0.1))
     cbar = plt.colorbar(im, ax=ax0, fraction=0.046, pad=0.04)
     cbar.ax.tick_params(colors='#94a3b8')
 
-    # 1X2 bars - MEJORADO
+    # 1X2 bars
     ax1 = axes[1]
     ax1.set_facecolor('#111827')
     home_win = np.sum(np.tril(sm_disp, k=-1))
     draw = np.sum(np.diag(sm_disp))
     away_win = np.sum(np.triu(sm_disp, k=1))
     
-    # Colores más vivos
     bars = ax1.bar([home_team[:10], "Empate", away_team[:10]],
                    [home_win, draw, away_win],
                    color=["#22c55e", "#94a3b8", "#ef4444"], 
                    width=0.5, edgecolor='none', linewidth=0)
     
-    # Añadir valores sobre las barras
     for b, v in zip(bars, [home_win, draw, away_win]):
         ax1.text(b.get_x() + b.get_width()/2, v + 0.02,
                 f"{v*100:.1f}%", ha="center", fontsize=12, fontweight="bold", color='white')
@@ -1046,11 +1046,12 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     ax1.set_title("Probabilidad de Resultado (1X2)", fontsize=12, color='white', pad=10)
     ax1.set_ylabel("Probabilidad", color='#94a3b8')
     ax1.tick_params(colors='#94a3b8')
+    
     for spine in ax1.spines.values():
-        spine.set_color('rgba(255,255,255,0.1)')
+        spine.set_color((1, 1, 1, 0.1))
     ax1.spines[["top", "right"]].set_visible(False)
 
-    # Top 10 scores - MEJORADO
+    # Top 10 scores
     ax2 = axes[2]
     ax2.set_facecolor('#111827')
     flat = np.argsort(sm.ravel())[::-1][:10]
@@ -1058,7 +1059,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     probs = sm[rows, cols]
     labels = [f"{r}-{c}" for r, c in zip(rows, cols)]
     
-    # Colores con degradado
     colors_bar = ["#ffc107"] + ["#00d4ff"] * min(9, len(labels)-1)
     bars2 = ax2.barh(np.arange(len(labels))[::-1], probs[:len(labels)], 
                      color=colors_bar[:len(labels)], edgecolor='none', height=0.7)
@@ -1066,7 +1066,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     ax2.set_yticks(np.arange(len(labels))[::-1])
     ax2.set_yticklabels(labels, fontsize=11, color='#94a3b8', fontweight='600' if len(labels) > 0 else 'normal')
     
-    # Posicionar valores
     for y, p in zip(np.arange(len(labels))[::-1], probs[:len(labels)]):
         ax2.text(p + max(probs)*0.015, y, f"{p*100:.1f}%", va="center", fontsize=10, color='white')
     
@@ -1074,8 +1073,9 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     ax2.set_title("Top 10 Marcadores Exactos", fontsize=12, color='white', pad=10)
     ax2.set_xlabel("Probabilidad", color='#94a3b8')
     ax2.tick_params(colors='#94a3b8')
+    
     for spine in ax2.spines.values():
-        spine.set_color('rgba(255,255,255,0.1)')
+        spine.set_color((1, 1, 1, 0.1))
     ax2.spines[["top", "right"]].set_visible(False)
 
     plt.tight_layout()
