@@ -40,19 +40,21 @@ st.markdown("""
         --text-primary: #f0f5f9;
         --text-secondary: #94a3b8;
         --text-muted: #64748b;
-        --accent-cyan: #00d4ff;
-        --accent-gold: #d2c80f;
-        --accent-green: #076027;
-        --accent-red: #ef4444;
+        --accent-cyan: #0088cc;
+        --accent-gold: #b8a800;
+        --accent-green: #0d7a3e;
+        --accent-red: #cc2233;
         --accent-purple: #a855f7;
         --shadow-glow: 0 0 30px rgba(0, 212, 255, 0.05);
     }
 
     /* Reset de fondo */
     .stApp {
-       background: linear-gradient(to bottom,  rgba(89,106,114,1) 0%,rgba(206,220,231,1) 100%);
+        background: linear-gradient(to bottom, #e8edf2 0%, #c8d6e5 100%);
         font-family: 'Inter', sans-serif;
+        color: #1a1a2e;  /* ✅ Texto oscuro para fondo claro */
     }
+
 
     /* Sidebar */
     [data-testid="stSidebar"] {
@@ -259,10 +261,9 @@ st.markdown("""
         font-size: 2.5rem !important;
         letter-spacing: 3px !important;
         margin: 0 !important;
-        background: linear-gradient(135deg, #020202, #02085b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: #ffffff;  /* Texto blanco sólido */
+        text-shadow: 0 0 30px rgba(0, 212, 255, 0.3);  /* ✅ Glow alrededor */
+        filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.2));
     }
     .title-bar p {
         color: var(--text-secondary);
@@ -277,9 +278,9 @@ st.markdown("""
         flex-wrap: wrap;
     }
     .badge {
-        background: rgba(0, 212, 255, 0.1);
-        border: 1px solid rgba(0, 212, 255, 0.2);
-        color: #00d4ff;
+        background: rgba(0, 0, 0, 0.08);  /* ✅ Más visible sobre fondo claro */
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        color: #0a0e1a;
         padding: 4px 12px;
         border-radius: 20px;
         font-size: 0.7rem;
@@ -289,14 +290,14 @@ st.markdown("""
         transition: all 0.3s ease;
     }
     .badge:hover {
-        background: rgba(0, 212, 255, 0.2);
-        transform: translateY(-1px);
+        background: rgba(0, 0, 0, 0.15);
     }
     .badge.gold {
-        background: rgba(255, 193, 7, 0.1);
-        border-color: rgba(255, 193, 7, 0.2);
-        color: #ffc107;
+        background: rgba(210, 200, 15, 0.15);
+        border-color: rgba(210, 200, 15, 0.3);
+        color: #8a7a00;
     }
+
     .badge.gold:hover {
         background: rgba(255, 193, 7, 0.2);
     }
@@ -309,8 +310,9 @@ st.markdown("""
         margin-bottom: 16px;
     }
     .status-item {
-        background: var(--bg-card);
-        border: 1px solid var(--border-subtle);
+        background: rgba(255,255,255,0.6);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(0,0,0,0.08);
         border-radius: 12px;
         padding: 12px 16px;
         text-align: center;
@@ -327,7 +329,7 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
     .status-item .value {
-        color: var(--text-primary);
+        color: #0a0e1a;
         font-size: 1.2rem;
         font-weight: 700;
         margin-top: 4px;
