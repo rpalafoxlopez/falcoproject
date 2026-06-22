@@ -58,13 +58,14 @@ st.markdown("""
 
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background: linear-gradient(
-                        to bottom,
-                        rgba(17,24,39,1) 0%,
-                        rgba(17,24,39,0.7) 70%,
-                        rgba(17,24,39,0) 100%
-                    ) !important;
-        border-right: 1px solid var(--border-subtle);
+       background: linear-gradient(
+            170deg,
+            #0f0c29 0%,
+            #1a1a3e 30%,
+            #24243e 60%,
+            #0f0c29 100%
+        ) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
     [data-testid="stSidebar"] .stMarkdown {
         color: var(--text-secondary);
