@@ -59,7 +59,7 @@ st.markdown("""
     /* Sidebar */
     [data-testid="stSidebar"] {
         background: linear-gradient(
-                        to right,
+                        to bottom,
                         rgba(17,24,39,1) 0%,
                         rgba(17,24,39,0.7) 70%,
                         rgba(17,24,39,0) 100%
