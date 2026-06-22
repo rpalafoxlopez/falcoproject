@@ -1,4 +1,4 @@
-# app.py - Predicción Mundial 2026 - Versión Corregida con Mejoras
+# app.py - Predicción Mundial 2026 - Versión Final Corregida
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -23,7 +23,7 @@ st.set_page_config(
 warnings.filterwarnings('ignore')
 
 # ============================================================================
-# CSS PERSONALIZADO - DISEÑO DARK PREMIUM (CON MEJORAS)
+# CSS PERSONALIZADO - DISEÑO DARK PREMIUM
 # ============================================================================
 st.markdown("""
 <style>
@@ -487,33 +487,27 @@ WORLD_CUP_2026_TEAMS = sorted([team for team in WORLD_CUP_2026_TEAMS])
 # ============================================================================
 # PARÁMETROS CONFIGURABLES
 # ============================================================================
-DIXON_COLES_RHO = -0.13  # Cambiado de -0.039 a -0.13 para torneos de eliminación directa
+DIXON_COLES_RHO = -0.13
 
 # ============================================================================
-# FUNCIÓN DE AJUSTE HÍBRIDO (MEJORADA)
+# FUNCIÓN DE AJUSTE HÍBRIDO
 # ============================================================================
 def ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h=None, elo_a=None):
-    """
-    Ajuste híbrido para el formato de 4 tiempos con pausas de hidratación.
-    Ahora con contracción adaptativa basada en diferencia de Elo.
-    """
-    factor_general = 0.95  # Reducido de 0.92 a 0.95 (menos agresivo)
+    factor_general = 0.95
     media_h_general = 1.35
     media_a_general = 1.05
     
     lam_h_ajustado = lam_h * factor_general
     lam_a_ajustado = lam_a * factor_general
     
-    # Contracción adaptativa basada en diferencia de Elo
     if elo_h is not None and elo_a is not None:
         diff_elo = abs(elo_h - elo_a)
-        # Si la diferencia es grande (>200 Elo), menos contracción
         if diff_elo > 200:
-            factor_contraccion = 0.05  # Casi sin contracción
+            factor_contraccion = 0.05
         elif diff_elo > 100:
             factor_contraccion = 0.08
         else:
-            factor_contraccion = 0.12  # Contracción normal para partidos equilibrados
+            factor_contraccion = 0.12
     else:
         factor_contraccion = 0.12
     
@@ -599,15 +593,12 @@ def ajustar_por_gol_temprano(score_matrix, lam_h, lam_a, home_team, away_team,
     return score_matrix_ajustada
 
 # ============================================================================
-# FUNCIÓN DE AJUSTE POR MOMENTUM (CORREGIDA - FUERA DEL MODAL)
+# FUNCIÓN DE AJUSTE POR MOMENTUM (CORREGIDA)
 # ============================================================================
 def ajustar_por_momentum(lam_h, lam_a, home_team, away_team, 
                          minuto_gol=None, es_favorito_local=None,
                          llegadas_previas_h=None, llegadas_previas_a=None,
                          marcador_actual=None):
-    """
-    Ajuste dinámico por momentum en tiempo real.
-    """
     # 1. Ajuste por gol tardío del favorito (minuto 80+)
     if minuto_gol is not None and minuto_gol >= 80:
         if es_favorito_local:
@@ -642,34 +633,38 @@ def ajustar_por_momentum(lam_h, lam_a, home_team, away_team,
 @st.cache_data(ttl=3600)
 def get_espn_fixture():
     try:
-        # Usar rango de fechas para cubrir todo el torneo
-        start_date = "2026-06-11"
-        end_date = "2026-07-19"
         url = "https://site.web.api.espn.com/apis/site/v2/sports/soccer/fifa.worldcup/scoreboard"
-        params = {"dates": start_date, "region": "us", "lang": "en", "contentorigin": "espn"}
+        params = {"region": "us", "lang": "en", "contentorigin": "espn"}
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            events = data.get('events', [])
-            fixture_data = []
-            for event in events:
-                competitions = event.get('competitions', [])
-                for comp in competitions:
-                    competitors = comp.get('competitors', [])
-                    if len(competitors) >= 2:
-                        home_team = competitors[0].get('team', {}).get('displayName', '')
-                        away_team = competitors[1].get('team', {}).get('displayName', '')
-                        date_str = event.get('date', '')
-                        try:
-                            match_date = datetime.fromisoformat(date_str.replace('Z', '+00:00')).date()
-                        except:
-                            match_date = datetime.strptime("2026-06-15", "%Y-%m-%d").date()
-                        fixture_data.append({'date': match_date, 'home_team': home_team, 'away_team': away_team})
-            if fixture_data:
-                return fixture_data
+        
+        fixture_data = []
+        # Hacer múltiples llamadas para cubrir el torneo
+        for date_offset in range(0, 35):
+            date_str = (datetime.strptime("2026-06-11", "%Y-%m-%d") + timedelta(days=date_offset)).strftime("%Y-%m-%d")
+            params["dates"] = date_str
+            response = requests.get(url, params=params, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                events = data.get('events', [])
+                for event in events:
+                    competitions = event.get('competitions', [])
+                    for comp in competitions:
+                        competitors = comp.get('competitors', [])
+                        if len(competitors) >= 2:
+                            home_team = competitors[0].get('team', {}).get('displayName', '')
+                            away_team = competitors[1].get('team', {}).get('displayName', '')
+                            date_str_event = event.get('date', '')
+                            try:
+                                match_date = datetime.fromisoformat(date_str_event.replace('Z', '+00:00')).date()
+                            except:
+                                match_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                            fixture_data.append({'date': match_date, 'home_team': home_team, 'away_team': away_team})
+        if fixture_data:
+            return fixture_data
     except Exception as e:
         st.warning(f"⚠️ No se pudo conectar a ESPN: {str(e)}")
+    
+    # Fixture manual (fallback)
     return [
         {'date': datetime.strptime("2026-06-15", "%Y-%m-%d").date(), 'home_team': 'Spain', 'away_team': 'Cabo Verde'},
         {'date': datetime.strptime("2026-06-15", "%Y-%m-%d").date(), 'home_team': 'Saudi Arabia', 'away_team': 'Uruguay'},
@@ -841,7 +836,6 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("🏟️ Configuración del Partido")
     
-    # Nuevo: Sede neutral
     neutral_venue = st.checkbox("🏟️ Partido en sede neutral", value=False, 
                                help="Anula la ventaja de localía (aplica para Mundial en USA/Canadá/México)")
 
@@ -868,7 +862,6 @@ with st.sidebar:
         minuto_gol = st.slider("⏱️ Minuto del primer gol", 1, 90, 15, help="Minuto en que el underdog anotó")
         st.caption("💡 Si el underdog anota primero, el partido se vuelve más abierto.")
     
-    # Nuevo: Ajuste por momentum
     use_momentum_adjustment = st.checkbox("⚡ Ajuste por momentum (gol tardío del favorito)", value=False)
     
     if use_momentum_adjustment:
@@ -876,6 +869,12 @@ with st.sidebar:
                                        help="Si el favorito anota en el minuto 80+, aumenta sus chances")
         llegadas_previas_h = st.number_input("Llegadas del local en el cuarto anterior", 0, 20, 5)
         llegadas_previas_a = st.number_input("Llegadas del visitante en el cuarto anterior", 0, 20, 3)
+        st.markdown("**Marcador actual:**")
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            marcador_actual_h = st.number_input("Goles local", 0, 10, 0, key="marc_h")
+        with col_m2:
+            marcador_actual_a = st.number_input("Goles visitante", 0, 10, 0, key="marc_a")
 
     st.markdown("---")
     max_goals_display = st.slider("📊 Máximo de goles a mostrar", 4, 10, 7)
@@ -897,7 +896,6 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("🔬 Validación del Modelo")
 
-    # Botón para abrir el modal de validación
     if st.button("📊 Validar modelo", use_container_width=True):
         st.session_state.show_validation = True
 
@@ -963,278 +961,274 @@ if st.session_state.show_validation:
         st.markdown("""
         <p style="margin-bottom: 16px;">
             <span class="validation-badge">📊 Validación fuera de muestra</span>
-            <span class="validation-badge" style="margin-left: 8px;">📅 2025-09-02 → 2026-06-01</span>
+            <span class="validation-badge" style="margin-left: 8px;">📅 Últimos 12 meses</span>
         </p>
         """, unsafe_allow_html=True)
         
         with st.spinner("🔄 Ejecutando validación (puede tomar 1-2 minutos)..."):
             try:
-                # Usar datos históricos reales para validación
-                # Nota: Como los datos futuros no existen, validamos en datos históricos recientes
-                TRAIN_END = "2024-01-01"
-                TEST_START = "2024-01-02"
-                TEST_END = "2025-09-01"
+                # Usar datos reales: entrenar con todo excepto el último año
+                max_date = raw["date"].max()
+                TRAIN_END = (max_date - pd.Timedelta(days=365)).strftime("%Y-%m-%d")
                 
                 train_data = raw[(raw["date"] <= TRAIN_END) & raw["home_score"].notna()].copy()
-                test_data = raw[(raw["date"] >= TEST_START) & (raw["date"] <= TEST_END) & raw["home_score"].notna()].copy()
+                test_data = raw[(raw["date"] > TRAIN_END) & raw["home_score"].notna()].copy()
                 
                 if len(test_data) < 10:
                     st.warning(f"⚠️ Solo {len(test_data)} partidos disponibles para validación.")
                     if st.button("Cerrar"):
                         st.session_state.show_validation = False
                         st.rerun()
-                else:
-                    # Entrenar modelo base
-                    with st.spinner("⚙️ Entrenando modelo..."):
-                        hist = raw[(raw.date <= TRAIN_END) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
-                        hist = hist[hist.date >= "2018-01-01"].copy()
-                        
-                        def entrenar_modelo_validacion(df):
-                            import xgboost as xgb
-                            K_ELO = 20.0
-                            ELO_INIT = 1500.0
-                            
-                            ratings = {}
-                            elo_h, elo_a = [], []
-                            for _, row in df.iterrows():
-                                rh = ratings.get(row.home_team, ELO_INIT)
-                                ra = ratings.get(row.away_team, ELO_INIT)
-                                elo_h.append(rh); elo_a.append(ra)
-                                
-                                exp_h = 1.0 / (1.0 + 10 ** ((ra - rh) / 400.0))
-                                if row.home_score > row.away_score: score = 1.0
-                                elif row.home_score == row.away_score: score = 0.5
-                                else: score = 0.0
-                                
-                                margin = abs(row.home_score - row.away_score)
-                                delta = K_ELO * (np.log(margin + 1) + 1.0) * (score - exp_h)
-                                ratings[row.home_team] = rh + delta
-                                ratings[row.away_team] = ra - delta
-                            
-                            df = df.copy()
-                            df["elo_home"], df["elo_away"] = elo_h, elo_a
-                            
-                            records = {}
-                            gf10_h, ga10_h, form5_h = [], [], []
-                            gf10_a, ga10_a, form5_a = [], [], []
-                            
-                            for _, row in df.iterrows():
-                                h_rec = records.get(row.home_team, [])
-                                a_rec = records.get(row.away_team, [])
-                                
-                                def summarize(hist_rec):
-                                    last10, last5 = hist_rec[-10:], hist_rec[-5:]
-                                    gf = np.mean([x[1] for x in last10]) if last10 else np.nan
-                                    ga = np.mean([x[2] for x in last10]) if last10 else np.nan
-                                    pts = sum(x[3] for x in last5) if last5 else np.nan
-                                    return gf, ga, pts
-                                
-                                hgf, hga, hpts = summarize(h_rec)
-                                agf, aga, apts = summarize(a_rec)
-                                gf10_h.append(hgf); ga10_h.append(hga); form5_h.append(hpts)
-                                gf10_a.append(agf); ga10_a.append(aga); form5_a.append(apts)
-                                
-                                h_pts = 3 if row.home_score > row.away_score else (1 if row.home_score == row.away_score else 0)
-                                a_pts = 3 if row.away_score > row.home_score else (1 if row.home_score == row.away_score else 0)
-                                records.setdefault(row.home_team, []).append((row.date, row.home_score, row.away_score, h_pts))
-                                records.setdefault(row.away_team, []).append((row.date, row.away_score, row.home_score, a_pts))
-                            
-                            df["gf10_h"], df["ga10_h"], df["form5_h"] = gf10_h, ga10_h, form5_h
-                            df["gf10_a"], df["ga10_a"], df["form5_a"] = gf10_a, ga10_a, form5_a
-                            final_form = records
-                            final_elo = ratings
-                            
-                            def to_long(dff):
-                                dff["tournament_weight"] = 1.0
-                                home_rows = pd.DataFrame({
-                                    "team": dff.home_team, "goals": dff.home_score, "is_home": 1,
-                                    "elo_team": dff.elo_home, "elo_opponent": dff.elo_away,
-                                    "gf10": dff.gf10_h, "ga10": dff.ga10_h, "form5": dff.form5_h,
-                                    "tournament_weight": dff.tournament_weight,
-                                })
-                                away_rows = pd.DataFrame({
-                                    "team": dff.away_team, "goals": dff.away_score, "is_home": 0,
-                                    "elo_team": dff.elo_away, "elo_opponent": dff.elo_home,
-                                    "gf10": dff.gf10_a, "ga10": dff.ga10_a, "form5": dff.form5_a,
-                                    "tournament_weight": dff.tournament_weight,
-                                })
-                                long = pd.concat([home_rows, away_rows], ignore_index=True)
-                                long["elo_diff"] = long.elo_team - long.elo_opponent
-                                return long.dropna(subset=["gf10", "ga10", "form5"])
-                            
-                            long_df = to_long(df)
-                            FEATURES = ["elo_team", "elo_opponent", "elo_diff", "is_home", "gf10", "ga10", "form5", "tournament_weight"]
-                            
-                            xgb_model = xgb.XGBRegressor(
-                                objective="count:poisson", n_estimators=200, max_depth=4, learning_rate=0.03,
-                                subsample=0.8, colsample_bytree=0.8, min_child_weight=5, random_state=42,
-                                n_jobs=1
-                            )
-                            xgb_model.fit(long_df[FEATURES], long_df["goals"])
-                            return xgb_model, FEATURES, final_elo, final_form
-                        
-                        xgb_model, FEATURES, final_elo, final_form = entrenar_modelo_validacion(hist)
+                    return  # ✅ Salir si no hay datos
+                
+                # Entrenar modelo base
+                with st.spinner("⚙️ Entrenando modelo..."):
+                    hist = raw[(raw.date <= TRAIN_END) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
+                    hist = hist[hist.date >= "2018-01-01"].copy()
                     
-                    # Evaluar sin pausas
-                    aciertos_a = 0
-                    for _, row in test_data.iterrows():
-                        def get_snapshot(team):
-                            hist_team = final_form.get(team, [])
-                            last10, last5 = hist_team[-10:], hist_team[-5:]
-                            gf = np.mean([x[1] for x in last10]) if last10 else 0.0
-                            ga = np.mean([x[2] for x in last10]) if last10 else 0.0
-                            pts = sum(x[3] for x in last5) if last5 else 0.0
-                            elo = final_elo.get(team, 1500.0)
-                            return elo, gf, ga, pts
+                    def entrenar_modelo_validacion(df):
+                        import xgboost as xgb
+                        K_ELO = 20.0
+                        ELO_INIT = 1500.0
                         
-                        elo_h, gf_h, ga_h, pts_h = get_snapshot(row['home_team'])
-                        elo_a, gf_a, ga_a, pts_a = get_snapshot(row['away_team'])
+                        ratings = {}
+                        elo_h, elo_a = [], []
+                        for _, row in df.iterrows():
+                            rh = ratings.get(row.home_team, ELO_INIT)
+                            ra = ratings.get(row.away_team, ELO_INIT)
+                            elo_h.append(rh); elo_a.append(ra)
+                            
+                            exp_h = 1.0 / (1.0 + 10 ** ((ra - rh) / 400.0))
+                            if row.home_score > row.away_score: score = 1.0
+                            elif row.home_score == row.away_score: score = 0.5
+                            else: score = 0.0
+                            
+                            margin = abs(row.home_score - row.away_score)
+                            delta = K_ELO * (np.log(margin + 1) + 1.0) * (score - exp_h)
+                            ratings[row.home_team] = rh + delta
+                            ratings[row.away_team] = ra - delta
                         
-                        row_home = {"elo_team": elo_h, "elo_opponent": elo_a, "elo_diff": elo_h - elo_a,
-                                    "is_home": 1, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
-                                    "tournament_weight": 4.0}
-                        row_away = {"elo_team": elo_a, "elo_opponent": elo_h, "elo_diff": elo_a - elo_h,
-                                    "is_home": 0, "gf10": gf_a, "ga10": ga_a, "form5": pts_a,
-                                    "tournament_weight": 4.0}
+                        df = df.copy()
+                        df["elo_home"], df["elo_away"] = elo_h, elo_a
                         
-                        feat_df = pd.DataFrame([row_home, row_away])[FEATURES]
-                        lam_h, lam_a = xgb_model.predict(feat_df)
+                        records = {}
+                        gf10_h, ga10_h, form5_h = [], [], []
+                        gf10_a, ga10_a, form5_a = [], [], []
                         
-                        goals = np.arange(0, 8 + 1)
-                        sm = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
-                        sm = sm / sm.sum()
+                        for _, row in df.iterrows():
+                            h_rec = records.get(row.home_team, [])
+                            a_rec = records.get(row.away_team, [])
+                            
+                            def summarize(hist_rec):
+                                last10, last5 = hist_rec[-10:], hist_rec[-5:]
+                                gf = np.mean([x[1] for x in last10]) if last10 else np.nan
+                                ga = np.mean([x[2] for x in last10]) if last10 else np.nan
+                                pts = sum(x[3] for x in last5) if last5 else np.nan
+                                return gf, ga, pts
+                            
+                            hgf, hga, hpts = summarize(h_rec)
+                            agf, aga, apts = summarize(a_rec)
+                            gf10_h.append(hgf); ga10_h.append(hga); form5_h.append(hpts)
+                            gf10_a.append(agf); ga10_a.append(aga); form5_a.append(apts)
+                            
+                            h_pts = 3 if row.home_score > row.away_score else (1 if row.home_score == row.away_score else 0)
+                            a_pts = 3 if row.away_score > row.home_score else (1 if row.home_score == row.away_score else 0)
+                            records.setdefault(row.home_team, []).append((row.date, row.home_score, row.away_score, h_pts))
+                            records.setdefault(row.away_team, []).append((row.date, row.away_score, row.home_score, a_pts))
                         
-                        pred = np.argmax([np.sum(sm[:3, :3]), np.sum(np.diag(sm[:3, :3])), np.sum(sm[:3, 1:])])
-                        real = 0 if row.home_score > row.away_score else 1 if row.home_score == row.away_score else 2
-                        if pred == real:
-                            aciertos_a += 1
-                    acc_a = aciertos_a / len(test_data)
-                    
-                    # Evaluar con pausas de hidratación
-                    aciertos_b = 0
-                    for _, row in test_data.iterrows():
-                        def get_snapshot(team):
-                            hist_team = final_form.get(team, [])
-                            last10, last5 = hist_team[-10:], hist_team[-5:]
-                            gf = np.mean([x[1] for x in last10]) if last10 else 0.0
-                            ga = np.mean([x[2] for x in last10]) if last10 else 0.0
-                            pts = sum(x[3] for x in last5) if last5 else 0.0
-                            elo = final_elo.get(team, 1500.0)
-                            return elo, gf, ga, pts
+                        df["gf10_h"], df["ga10_h"], df["form5_h"] = gf10_h, ga10_h, form5_h
+                        df["gf10_a"], df["ga10_a"], df["form5_a"] = gf10_a, ga10_a, form5_a
+                        final_form = records
+                        final_elo = ratings
                         
-                        elo_h, gf_h, ga_h, pts_h = get_snapshot(row['home_team'])
-                        elo_a, gf_a, ga_a, pts_a = get_snapshot(row['away_team'])
+                        def to_long(dff):
+                            dff["tournament_weight"] = 1.0
+                            home_rows = pd.DataFrame({
+                                "team": dff.home_team, "goals": dff.home_score, "is_home": 1,
+                                "elo_team": dff.elo_home, "elo_opponent": dff.elo_away,
+                                "gf10": dff.gf10_h, "ga10": dff.ga10_h, "form5": dff.form5_h,
+                                "tournament_weight": dff.tournament_weight,
+                            })
+                            away_rows = pd.DataFrame({
+                                "team": dff.away_team, "goals": dff.away_score, "is_home": 0,
+                                "elo_team": dff.elo_away, "elo_opponent": dff.elo_home,
+                                "gf10": dff.gf10_a, "ga10": dff.ga10_a, "form5": dff.form5_a,
+                                "tournament_weight": dff.tournament_weight,
+                            })
+                            long = pd.concat([home_rows, away_rows], ignore_index=True)
+                            long["elo_diff"] = long.elo_team - long.elo_opponent
+                            return long.dropna(subset=["gf10", "ga10", "form5"])
                         
-                        row_home = {"elo_team": elo_h, "elo_opponent": elo_a, "elo_diff": elo_h - elo_a,
-                                    "is_home": 1, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
-                                    "tournament_weight": 4.0}
-                        row_away = {"elo_team": elo_a, "elo_opponent": elo_h, "elo_diff": elo_a - elo_h,
-                                    "is_home": 0, "gf10": gf_a, "ga10": ga_a, "form5": pts_a,
-                                    "tournament_weight": 4.0}
+                        long_df = to_long(df)
+                        FEATURES = ["elo_team", "elo_opponent", "elo_diff", "is_home", "gf10", "ga10", "form5", "tournament_weight"]
                         
-                        feat_df = pd.DataFrame([row_home, row_away])[FEATURES]
-                        lam_h, lam_a = xgb_model.predict(feat_df)
-                        
-                        # Aplicar ajuste por pausas de hidratación
-                        lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
-                        
-                        goals = np.arange(0, 8 + 1)
-                        sm = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
-                        sm = sm / sm.sum()
-                        
-                        pred = np.argmax([np.sum(sm[:3, :3]), np.sum(np.diag(sm[:3, :3])), np.sum(sm[:3, 1:])])
-                        real = 0 if row.home_score > row.away_score else 1 if row.home_score == row.away_score else 2
-                        if pred == real:
-                            aciertos_b += 1
-                    acc_b = aciertos_b / len(test_data)
-                    
-                    # Evaluar con pausas + momentum
-                    aciertos_c = 0
-                    for _, row in test_data.iterrows():
-                        def get_snapshot(team):
-                            hist_team = final_form.get(team, [])
-                            last10, last5 = hist_team[-10:], hist_team[-5:]
-                            gf = np.mean([x[1] for x in last10]) if last10 else 0.0
-                            ga = np.mean([x[2] for x in last10]) if last10 else 0.0
-                            pts = sum(x[3] for x in last5) if last5 else 0.0
-                            elo = final_elo.get(team, 1500.0)
-                            return elo, gf, ga, pts
-                        
-                        elo_h, gf_h, ga_h, pts_h = get_snapshot(row['home_team'])
-                        elo_a, gf_a, ga_a, pts_a = get_snapshot(row['away_team'])
-                        
-                        row_home = {"elo_team": elo_h, "elo_opponent": elo_a, "elo_diff": elo_h - elo_a,
-                                    "is_home": 1, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
-                                    "tournament_weight": 4.0}
-                        row_away = {"elo_team": elo_a, "elo_opponent": elo_h, "elo_diff": elo_a - elo_h,
-                                    "is_home": 0, "gf10": gf_a, "ga10": ga_a, "form5": pts_a,
-                                    "tournament_weight": 4.0}
-                        
-                        feat_df = pd.DataFrame([row_home, row_away])[FEATURES]
-                        lam_h, lam_a = xgb_model.predict(feat_df)
-                        
-                        # Aplicar ajuste por pausas de hidratación
-                        lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
-                        
-                        # Aplicar ajuste por momentum
-                        es_favorito_local = elo_h > elo_a
-                        lam_h, lam_a = ajustar_por_momentum(
-                            lam_h, lam_a, 
-                            home_team=row['home_team'],
-                            away_team=row['away_team'],
-                            minuto_gol=85,
-                            es_favorito_local=es_favorito_local,
-                            marcador_actual={'home': row.home_score, 'away': row.away_score}
+                        xgb_model = xgb.XGBRegressor(
+                            objective="count:poisson", n_estimators=200, max_depth=4, learning_rate=0.03,
+                            subsample=0.8, colsample_bytree=0.8, min_child_weight=5, random_state=42,
+                            n_jobs=1
                         )
-                        
-                        goals = np.arange(0, 8 + 1)
-                        sm = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
-                        sm = sm / sm.sum()
-                        
-                        pred = np.argmax([np.sum(sm[:3, :3]), np.sum(np.diag(sm[:3, :3])), np.sum(sm[:3, 1:])])
-                        real = 0 if row.home_score > row.away_score else 1 if row.home_score == row.away_score else 2
-                        if pred == real:
-                            aciertos_c += 1
-                    acc_c = aciertos_c / len(test_data)
+                        xgb_model.fit(long_df[FEATURES], long_df["goals"])
+                        return xgb_model, FEATURES, final_elo, final_form
                     
-                    # Mostrar resultados
-                    st.success("✅ Validación completada!")
+                    xgb_model, FEATURES, final_elo, final_form = entrenar_modelo_validacion(hist)
+                
+                # Evaluar sin pausas
+                aciertos_a = 0
+                for _, row in test_data.iterrows():
+                    def get_snapshot(team):
+                        hist_team = final_form.get(team, [])
+                        last10, last5 = hist_team[-10:], hist_team[-5:]
+                        gf = np.mean([x[1] for x in last10]) if last10 else 0.0
+                        ga = np.mean([x[2] for x in last10]) if last10 else 0.0
+                        pts = sum(x[3] for x in last5) if last5 else 0.0
+                        elo = final_elo.get(team, 1500.0)
+                        return elo, gf, ga, pts
                     
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("📊 Partidos", len(test_data))
-                    with col2:
-                        st.metric("🔵 Base", f"{acc_a*100:.1f}%")
-                    with col3:
-                        st.metric("🟢 Con pausas", f"{acc_b*100:.1f}%", 
-                                 delta=f"{(acc_b - acc_a)*100:+.1f} pp")
+                    elo_h, gf_h, ga_h, pts_h = get_snapshot(row['home_team'])
+                    elo_a, gf_a, ga_a, pts_a = get_snapshot(row['away_team'])
                     
-                    st.markdown("---")
+                    row_home = {"elo_team": elo_h, "elo_opponent": elo_a, "elo_diff": elo_h - elo_a,
+                                "is_home": 1, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
+                                "tournament_weight": 4.0}
+                    row_away = {"elo_team": elo_a, "elo_opponent": elo_h, "elo_diff": elo_a - elo_h,
+                                "is_home": 0, "gf10": gf_a, "ga10": ga_a, "form5": pts_a,
+                                "tournament_weight": 4.0}
                     
-                    benchmark = 0.593
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("📊 Benchmark", "59.3%")
-                    with col2:
-                        st.metric("🟣 + Momentum", f"{acc_c*100:.1f}%", 
-                                 delta=f"{(acc_c - acc_b)*100:+.1f} pp")
-                    with col3:
-                        st.metric("📈 vs benchmark", f"{(acc_c - benchmark)*100:+.1f} pp")
+                    feat_df = pd.DataFrame([row_home, row_away])[FEATURES]
+                    lam_h, lam_a = xgb_model.predict(feat_df)
                     
-                    st.markdown("---")
+                    goals = np.arange(0, 8 + 1)
+                    sm = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
+                    sm = sm / sm.sum()
                     
-                    comp_df = pd.DataFrame([
-                        {"Modelo": "XGBoost (copiado)", "Accuracy": "59.3%", "Mejora": "—"},
-                        {"Modelo": "XGBoost (base)", "Accuracy": f"{acc_a*100:.1f}%", "Mejora": "—"},
-                        {"Modelo": "+ Pausas", "Accuracy": f"{acc_b*100:.1f}%", "Mejora": f"{(acc_b - acc_a)*100:+.1f} pp"},
-                        {"Modelo": "+ Pausas + Momentum", "Accuracy": f"{acc_c*100:.1f}%", "Mejora": f"{(acc_c - acc_b)*100:+.1f} pp"}
-                    ])
-                    st.dataframe(comp_df, hide_index=True, use_container_width=True)
+                    pred = np.argmax([np.sum(sm[:3, :3]), np.sum(np.diag(sm[:3, :3])), np.sum(sm[:3, 1:])])
+                    real = 0 if row.home_score > row.away_score else 1 if row.home_score == row.away_score else 2
+                    if pred == real:
+                        aciertos_a += 1
+                acc_a = aciertos_a / len(test_data)
+                
+                # Evaluar con pausas de hidratación
+                aciertos_b = 0
+                for _, row in test_data.iterrows():
+                    def get_snapshot(team):
+                        hist_team = final_form.get(team, [])
+                        last10, last5 = hist_team[-10:], hist_team[-5:]
+                        gf = np.mean([x[1] for x in last10]) if last10 else 0.0
+                        ga = np.mean([x[2] for x in last10]) if last10 else 0.0
+                        pts = sum(x[3] for x in last5) if last5 else 0.0
+                        elo = final_elo.get(team, 1500.0)
+                        return elo, gf, ga, pts
                     
-                    if st.button("✅ Cerrar validación", use_container_width=True):
-                        st.session_state.show_validation = False
-                        st.rerun()
+                    elo_h, gf_h, ga_h, pts_h = get_snapshot(row['home_team'])
+                    elo_a, gf_a, ga_a, pts_a = get_snapshot(row['away_team'])
                     
+                    row_home = {"elo_team": elo_h, "elo_opponent": elo_a, "elo_diff": elo_h - elo_a,
+                                "is_home": 1, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
+                                "tournament_weight": 4.0}
+                    row_away = {"elo_team": elo_a, "elo_opponent": elo_h, "elo_diff": elo_a - elo_h,
+                                "is_home": 0, "gf10": gf_a, "ga10": ga_a, "form5": pts_a,
+                                "tournament_weight": 4.0}
+                    
+                    feat_df = pd.DataFrame([row_home, row_away])[FEATURES]
+                    lam_h, lam_a = xgb_model.predict(feat_df)
+                    
+                    lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
+                    
+                    goals = np.arange(0, 8 + 1)
+                    sm = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
+                    sm = sm / sm.sum()
+                    
+                    pred = np.argmax([np.sum(sm[:3, :3]), np.sum(np.diag(sm[:3, :3])), np.sum(sm[:3, 1:])])
+                    real = 0 if row.home_score > row.away_score else 1 if row.home_score == row.away_score else 2
+                    if pred == real:
+                        aciertos_b += 1
+                acc_b = aciertos_b / len(test_data)
+                
+                # Evaluar con pausas + momentum
+                aciertos_c = 0
+                for _, row in test_data.iterrows():
+                    def get_snapshot(team):
+                        hist_team = final_form.get(team, [])
+                        last10, last5 = hist_team[-10:], hist_team[-5:]
+                        gf = np.mean([x[1] for x in last10]) if last10 else 0.0
+                        ga = np.mean([x[2] for x in last10]) if last10 else 0.0
+                        pts = sum(x[3] for x in last5) if last5 else 0.0
+                        elo = final_elo.get(team, 1500.0)
+                        return elo, gf, ga, pts
+                    
+                    elo_h, gf_h, ga_h, pts_h = get_snapshot(row['home_team'])
+                    elo_a, gf_a, ga_a, pts_a = get_snapshot(row['away_team'])
+                    
+                    row_home = {"elo_team": elo_h, "elo_opponent": elo_a, "elo_diff": elo_h - elo_a,
+                                "is_home": 1, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
+                                "tournament_weight": 4.0}
+                    row_away = {"elo_team": elo_a, "elo_opponent": elo_h, "elo_diff": elo_a - elo_h,
+                                "is_home": 0, "gf10": gf_a, "ga10": ga_a, "form5": pts_a,
+                                "tournament_weight": 4.0}
+                    
+                    feat_df = pd.DataFrame([row_home, row_away])[FEATURES]
+                    lam_h, lam_a = xgb_model.predict(feat_df)
+                    
+                    lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
+                    
+                    es_favorito_local = elo_h > elo_a
+                    lam_h, lam_a = ajustar_por_momentum(
+                        lam_h, lam_a, 
+                        home_team=row['home_team'],
+                        away_team=row['away_team'],
+                        minuto_gol=85,
+                        es_favorito_local=es_favorito_local,
+                        marcador_actual={'home': row.home_score, 'away': row.away_score}
+                    )
+                    
+                    goals = np.arange(0, 8 + 1)
+                    sm = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
+                    sm = sm / sm.sum()
+                    
+                    pred = np.argmax([np.sum(sm[:3, :3]), np.sum(np.diag(sm[:3, :3])), np.sum(sm[:3, 1:])])
+                    real = 0 if row.home_score > row.away_score else 1 if row.home_score == row.away_score else 2
+                    if pred == real:
+                        aciertos_c += 1
+                acc_c = aciertos_c / len(test_data)
+                
+                # Mostrar resultados
+                st.success(f"✅ Validación completada con {len(test_data)} partidos!")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("📊 Partidos", len(test_data))
+                with col2:
+                    st.metric("🔵 Base", f"{acc_a*100:.1f}%")
+                with col3:
+                    st.metric("🟢 Con pausas", f"{acc_b*100:.1f}%", 
+                             delta=f"{(acc_b - acc_a)*100:+.1f} pp")
+                
+                st.markdown("---")
+                
+                benchmark = 0.593
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("📊 Benchmark", "59.3%")
+                with col2:
+                    st.metric("🟣 + Momentum", f"{acc_c*100:.1f}%", 
+                             delta=f"{(acc_c - acc_b)*100:+.1f} pp")
+                with col3:
+                    st.metric("📈 vs benchmark", f"{(acc_c - benchmark)*100:+.1f} pp")
+                
+                st.markdown("---")
+                
+                comp_df = pd.DataFrame([
+                    {"Modelo": "XGBoost (copiado)", "Accuracy": "59.3%", "Mejora": "—"},
+                    {"Modelo": "XGBoost (base)", "Accuracy": f"{acc_a*100:.1f}%", "Mejora": "—"},
+                    {"Modelo": "+ Pausas", "Accuracy": f"{acc_b*100:.1f}%", "Mejora": f"{(acc_b - acc_a)*100:+.1f} pp"},
+                    {"Modelo": "+ Pausas + Momentum", "Accuracy": f"{acc_c*100:.1f}%", "Mejora": f"{(acc_c - acc_b)*100:+.1f} pp"}
+                ])
+                st.dataframe(comp_df, hide_index=True, use_container_width=True)
+                
+                if st.button("✅ Cerrar validación", use_container_width=True):
+                    st.session_state.show_validation = False
+                    st.rerun()
+                
             except Exception as e:
                 st.error(f"❌ Error en la validación: {str(e)}")
                 st.info("💡 La validación requiere datos históricos. Asegúrate de que el dataset esté disponible.")
@@ -1269,9 +1263,9 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
             attack = pm.Deterministic("attack", attack_raw - attack_raw.mean(), dims="team")
             defense = pm.Deterministic("defense", defense_raw - defense_raw.mean(), dims="team")
             
-            # Si es sede neutral, home_adv se anula
+            # ✅ Neutral venue fijo a cero
             if neutral_venue:
-                home_adv = pm.Normal("home_adv", mu=0.0, sigma=0.1)
+                home_adv = pm.Deterministic("home_adv", 0.0)
             else:
                 home_adv = pm.Normal("home_adv", mu=0.3, sigma=0.5)
             
@@ -1299,8 +1293,12 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
         lam_h = np.exp(log_th).mean()
         lam_a = np.exp(log_ta).mean()
         
+        # ✅ Obtener Elos para contracción adaptativa
+        elo_h = get_espn_team_stats(home_team).get('elo', 1750)
+        elo_a = get_espn_team_stats(away_team).get('elo', 1750)
+        
         if use_hydration:
-            lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a)
+            lam_h, lam_a = ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
         
         goals = np.arange(0, max_goals + 1)
         pmf_h = poisson.pmf(goals, lam_h)
@@ -1332,13 +1330,15 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         DEFAULT_WEIGHT = 1.0
         stats_h = get_espn_team_stats(home_team)
         stats_a = get_espn_team_stats(away_team)
+        elo_h = stats_h.get('elo', 1750)
+        elo_a = stats_a.get('elo', 1750)
         
         ratings = {}
-        elo_h, elo_a = [], []
+        elo_h_hist, elo_a_hist = [], []
         for _, row in hist.iterrows():
             rh = ratings.get(row.home_team, ELO_INIT)
             ra = ratings.get(row.away_team, ELO_INIT)
-            elo_h.append(rh); elo_a.append(ra)
+            elo_h_hist.append(rh); elo_a_hist.append(ra)
             exp_h = 1.0 / (1.0 + 10 ** ((ra - rh) / 400.0))
             if row.home_score > row.away_score: score = 1.0
             elif row.home_score == row.away_score: score = 0.5
@@ -1349,7 +1349,7 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             ratings[row.away_team] = ra - delta
         
         hist = hist.copy()
-        hist["elo_home"], hist["elo_away"] = elo_h, elo_a
+        hist["elo_home"], hist["elo_away"] = elo_h_hist, elo_a_hist
         final_elo = ratings
         
         records = {}
@@ -1384,7 +1384,6 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         def to_long(df):
             df["tournament_weight"] = df.tournament.map(TOURNAMENT_WEIGHTS).fillna(DEFAULT_WEIGHT)
             
-            # Si es sede neutral, is_home se anula
             is_home_value = 0 if neutral_venue else 1
             
             home_rows = pd.DataFrame({
@@ -1422,16 +1421,15 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             elo = final_elo.get(team, ELO_INIT)
             return elo, gf, ga, pts
         
-        elo_h, gf_h, ga_h, pts_h = get_snapshot(home_team)
-        elo_a, gf_a, ga_a, pts_a = get_snapshot(away_team)
+        elo_h_snap, gf_h, ga_h, pts_h = get_snapshot(home_team)
+        elo_a_snap, gf_a, ga_a, pts_a = get_snapshot(away_team)
         
-        # Si es sede neutral, is_home se anula
         is_home_value = 0 if neutral_venue else 1
         
-        row_home = {"elo_team": elo_h, "elo_opponent": elo_a, "elo_diff": elo_h - elo_a,
+        row_home = {"elo_team": elo_h_snap, "elo_opponent": elo_a_snap, "elo_diff": elo_h_snap - elo_a_snap,
                     "is_home": is_home_value, "gf10": gf_h, "ga10": ga_h, "form5": pts_h,
                     "tournament_weight": 4.0}
-        row_away = {"elo_team": elo_a, "elo_opponent": elo_h, "elo_diff": elo_a - elo_h,
+        row_away = {"elo_team": elo_a_snap, "elo_opponent": elo_h_snap, "elo_diff": elo_a_snap - elo_h_snap,
                     "is_home": 0, "gf10": gf_a, "ga10": ga_a, "form5": pts_a,
                     "tournament_weight": 4.0}
         
@@ -1462,7 +1460,7 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         return None, None, None, None
 
 # ============================================================================
-# PLOT REDISEÑADO - CON MEJORAS DE TAMAÑO
+# PLOT REDISEÑADO
 # ============================================================================
 def plot_results(sm, home_team, away_team, title, max_display=7):
     if sm.shape[0] < max_display + 1 or sm.shape[1] < max_display + 1:
@@ -1480,7 +1478,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     colors = ['#0a0e1a', '#1a3a6b', '#2d5a9a', '#00d4ff', '#ffffff']
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
 
-    # Heatmap
     ax0 = axes[0]
     ax0.set_facecolor('#111827')
     im = ax0.imshow(sm_disp, cmap=custom_cmap, vmin=0, origin="upper")
@@ -1503,7 +1500,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     cbar = plt.colorbar(im, ax=ax0, fraction=0.046, pad=0.04)
     cbar.ax.tick_params(colors='#94a3b8')
 
-    # 1X2 bars
     ax1 = axes[1]
     ax1.set_facecolor('#111827')
     home_win = np.sum(np.tril(sm_disp, k=-1))
@@ -1528,7 +1524,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
         spine.set_color((1, 1, 1, 0.1))
     ax1.spines[["top", "right"]].set_visible(False)
 
-    # Top 10 scores
     ax2 = axes[2]
     ax2.set_facecolor('#111827')
     flat = np.argsort(sm.ravel())[::-1][:10]
@@ -1565,6 +1560,13 @@ if predict_btn:
     if home_team == away_team:
         st.error("❌ Los equipos deben ser diferentes")
         st.stop()
+
+    # ✅ Inicializar variables de momentum antes de usarlas
+    marcador_actual_h = 0
+    marcador_actual_a = 0
+    llegadas_previas_h = None
+    llegadas_previas_a = None
+    minuto_gol_favorito = None
 
     with st.spinner("🔄 Preparando datos..."):
         CUTOFF = pd.Timestamp(match_date) - pd.Timedelta(days=1)
@@ -1609,15 +1611,8 @@ if predict_btn:
                     use_hydration_adjustment, use_dixon_coles, neutral_venue
                 )
                 if sm_xgb is not None:
-                    # Aplicar ajustes dinámicos
-                    if use_dynamic_adjustment:
-                        sm_xgb = ajustar_por_gol_temprano(
-                            sm_xgb, lam_h_xgb, lam_a_xgb,
-                            home_team, away_team,
-                            underdog_scored_first, minuto_gol,
-                            favorito_elo, underdog_elo
-                        )
-                    
+                    # ✅ ORDEN CORRECTO:
+                    # 1. Aplicar momentum (modifica lambdas)
                     if use_momentum_adjustment:
                         es_favorito_local = elo_h > elo_a
                         lam_h_xgb, lam_a_xgb = ajustar_por_momentum(
@@ -1625,16 +1620,26 @@ if predict_btn:
                             home_team, away_team,
                             minuto_gol=minuto_gol_favorito,
                             es_favorito_local=es_favorito_local,
-                            llegadas_previas_h=llegadas_previas_h if 'llegadas_previas_h' in locals() else None,
-                            llegadas_previas_a=llegadas_previas_a if 'llegadas_previas_a' in locals() else None,
-                            marcador_actual={'home': 0, 'away': 0}
+                            llegadas_previas_h=llegadas_previas_h,
+                            llegadas_previas_a=llegadas_previas_a,
+                            marcador_actual={'home': marcador_actual_h, 'away': marcador_actual_a}
                         )
-                        # Recalcular matriz con los nuevos lambdas
+                        # Recalcular matriz
                         goals = np.arange(0, max_goals_display + 1)
                         sm_xgb = np.outer(poisson.pmf(goals, lam_h_xgb), poisson.pmf(goals, lam_a_xgb))
-                        suma = sm_xgb.sum()
-                        if suma > 0:
-                            sm_xgb = sm_xgb / suma
+                        if use_dixon_coles:
+                            sm_xgb = aplicar_dixon_coles(sm_xgb, lam_h_xgb, lam_a_xgb)
+                        else:
+                            sm_xgb = sm_xgb / sm_xgb.sum()
+                    
+                    # 2. Aplicar gol temprano del underdog (modifica matriz)
+                    if use_dynamic_adjustment:
+                        sm_xgb = ajustar_por_gol_temprano(
+                            sm_xgb, lam_h_xgb, lam_a_xgb,
+                            home_team, away_team,
+                            underdog_scored_first, minuto_gol,
+                            favorito_elo, underdog_elo
+                        )
                     
                     results['xgb'] = {
                         'score_matrix': sm_xgb,
@@ -1655,14 +1660,7 @@ if predict_btn:
                     use_hydration_adjustment, use_dixon_coles, neutral_venue
                 )
                 if sm_bayes is not None:
-                    if use_dynamic_adjustment:
-                        sm_bayes = ajustar_por_gol_temprano(
-                            sm_bayes, lam_h_bayes, lam_a_bayes,
-                            home_team, away_team,
-                            underdog_scored_first, minuto_gol,
-                            favorito_elo, underdog_elo
-                        )
-                    
+                    # ✅ ORDEN CORRECTO para Bayesiano también
                     if use_momentum_adjustment:
                         es_favorito_local = elo_h > elo_a
                         lam_h_bayes, lam_a_bayes = ajustar_por_momentum(
@@ -1670,15 +1668,24 @@ if predict_btn:
                             home_team, away_team,
                             minuto_gol=minuto_gol_favorito,
                             es_favorito_local=es_favorito_local,
-                            llegadas_previas_h=llegadas_previas_h if 'llegadas_previas_h' in locals() else None,
-                            llegadas_previas_a=llegadas_previas_a if 'llegadas_previas_a' in locals() else None,
-                            marcador_actual={'home': 0, 'away': 0}
+                            llegadas_previas_h=llegadas_previas_h,
+                            llegadas_previas_a=llegadas_previas_a,
+                            marcador_actual={'home': marcador_actual_h, 'away': marcador_actual_a}
                         )
                         goals = np.arange(0, max_goals_display + 1)
                         sm_bayes = np.outer(poisson.pmf(goals, lam_h_bayes), poisson.pmf(goals, lam_a_bayes))
-                        suma = sm_bayes.sum()
-                        if suma > 0:
-                            sm_bayes = sm_bayes / suma
+                        if use_dixon_coles:
+                            sm_bayes = aplicar_dixon_coles(sm_bayes, lam_h_bayes, lam_a_bayes)
+                        else:
+                            sm_bayes = sm_bayes / sm_bayes.sum()
+                    
+                    if use_dynamic_adjustment:
+                        sm_bayes = ajustar_por_gol_temprano(
+                            sm_bayes, lam_h_bayes, lam_a_bayes,
+                            home_team, away_team,
+                            underdog_scored_first, minuto_gol,
+                            favorito_elo, underdog_elo
+                        )
                     
                     results['bayes'] = {
                         'score_matrix': sm_bayes,
@@ -1703,7 +1710,7 @@ if predict_btn:
         st.error(f"❌ No se pudo completar. Errores: {', '.join(errores)}")
 
 # ============================================================================
-# MOSTRAR RESULTADOS REDISEÑADOS
+# MOSTRAR RESULTADOS
 # ============================================================================
 if 'results' in st.session_state and st.session_state.results:
     results = st.session_state.results
@@ -1712,8 +1719,6 @@ if 'results' in st.session_state and st.session_state.results:
     elo_a = results['elo']['away']
 
     st.markdown("---")
-
-    # Resumen de predicción
     st.subheader("📊 Resumen de Predicción")
 
     model_count = len([m for m in results.keys() if m not in ['teams', 'elo']])
@@ -1735,7 +1740,6 @@ if 'results' in st.session_state and st.session_state.results:
 
     st.markdown("---")
 
-    # Gráficos por modelo
     model_cols = st.columns(model_count)
     col_idx = 0
 
@@ -1770,7 +1774,6 @@ if 'results' in st.session_state and st.session_state.results:
             top_idx = np.unravel_index(model_data['score_matrix'][:7,:7].argmax(), (7,7))
             st.info(f"🎯 Marcador más probable: **{top_idx[0]}-{top_idx[1]}**")
 
-            # Correcciones aplicadas
             correcciones = []
             if use_dixon_coles:
                 correcciones.append("🔧 DC")
@@ -1832,7 +1835,7 @@ if 'results' in st.session_state and st.session_state.results:
         st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
 # ============================================================================
-# FOOTER REDISEÑADO
+# FOOTER
 # ============================================================================
 st.markdown("---")
 st.markdown("""
