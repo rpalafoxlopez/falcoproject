@@ -1210,12 +1210,11 @@ if st.session_state.show_validation:
     
     # Ejecutar el modal
     validation_modal()
-
+    
 # ============================================================================
-# FUNCIONES DE PREDICCIÓN
+# FUNCIÓN DE AJUSTE POR MOMENTUM (MOVER AQUÍ)
 # ============================================================================
-
-def ajustar_por_momentum(lam_h, lam_a, home_team, away_team, 
+    def ajustar_por_momentum(lam_h, lam_a, home_team, away_team, 
                          minuto_gol=None, es_favorito_local=None,
                          llegadas_previas_h=None, llegadas_previas_a=None,
                          marcador_actual=None):
@@ -1249,6 +1248,12 @@ def ajustar_por_momentum(lam_h, lam_a, home_team, away_team,
             lam_a *= 1.06
     
     return lam_h, lam_a
+
+# ============================================================================
+# FUNCIONES DE PREDICCIÓN
+# ============================================================================
+
+
 
 def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8,
                          use_hydration=True, use_dixon_coles=True):
