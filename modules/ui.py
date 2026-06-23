@@ -402,15 +402,15 @@ def render_footer():
     st.markdown("""
     <div class="footer">
         <p>
-            ⚽ Modelo Bayesiano Jerárquico — Mundial FIFA 2026
+            ⚽ Mundial FIFA 2026
             <span class="separator">·</span>
-            🔧 Dixon-Coles (ρ=-0.13)
+            🔧 (ρ=-0.13)
             <span class="separator">·</span>
-            💧 Ajuste por 4 tiempos
+            💧
             <span class="separator">·</span>
-            ⚽ Ajuste por alta anotación
+            ⚽ 
         </p>
-        <p style="margin-top: 8px; color: #64748b; font-size: 0.7rem;">
+        <p style="margin-top: 8px; color: #64748b; font-size: 1.2rem; font-weight:bold;">
             <a href="https://satohachi.rpalafox.com/" target="_blank" style="color: #00d4ff;">🐝 rpalafox.com</a>
             <span class="separator">·</span>
             <span style="color: #64748b;">Uso exclusivamente educativo y de entretenimiento</span>
