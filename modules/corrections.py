@@ -329,3 +329,4 @@ def ajuste_completo_contextual(lam_h, lam_a, home_team, away_team,
         )
     
     return lam_h, lam_a
+
