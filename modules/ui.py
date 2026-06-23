@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import sys
+import time
 
 from . import config
 from . import data_loader
@@ -58,8 +59,8 @@ def render_disclaimer():
     """Muestra el disclaimer de uso responsable"""
     st.markdown("""
     <div style="
-        background: rgba(239, 68, 68, 0.5);
-        border: 1px solid rgba(239, 68, 68, 0.8);
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.2);
         border-radius: 12px;
         padding: 16px 20px;
         margin: 12px 0 24px 0;
@@ -318,12 +319,14 @@ def render_results(results, elo, dixon_coles_rho):
         # ✅ Verificar si es empate
         es_empate = prox.get('es_empate', False)
         empate_tag = " 📊 Empate más probable" if es_empate else ""
+        border_color = 'rgba(255, 193, 7, 0.3)' if es_empate else 'rgba(0, 212, 255, 0.3)'
+        text_color = '#ffc107' if es_empate else '#00d4ff'
         
         with prox_cols[col_idx % 3]:
             st.markdown(f"""
             <div style="
                 background: linear-gradient(135deg, #1a1f2e, #0f172a);
-                border: 2px solid {'rgba(255, 193, 7, 0.3)' if es_empate else 'rgba(0, 212, 255, 0.3)'};
+                border: 2px solid {border_color};
                 border-radius: 16px;
                 padding: 20px;
                 text-align: center;
@@ -332,7 +335,7 @@ def render_results(results, elo, dixon_coles_rho):
                 <h1 style="
                     font-family: 'Bebas Neue', sans-serif;
                     font-size: 3rem;
-                    color: {'#ffc107' if es_empate else '#00d4ff'};
+                    color: {text_color};
                     margin: 8px 0;
                 ">{prox['proximal'][0]} - {prox['proximal'][1]}</h1>
                 <p style="color: #64748b; font-size: 0.7rem; margin: 0;">

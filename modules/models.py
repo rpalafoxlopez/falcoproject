@@ -11,73 +11,6 @@ from . import corrections
 # ============================================================================
 # MODELO BAYESIANO
 # ============================================================================
-SPINNER_STYLES = {
-    'bayesiano': {
-        'border-color': '#00d4ff',
-        'border-top-color': 'transparent',
-        'width': '48px',
-        'height': '48px',
-        'message': '🧠 Entrenando Bayesiano...'
-    },
-    'xgboost': {
-        'border-color': '#ff6b6b',
-        'border-top-color': 'transparent',
-        'width': '40px',
-        'height': '40px',
-        'message': '⚡ Entrenando XGBoost...'
-    },
-    'validacion': {
-        'border-color': '#ffc107',
-        'border-top-color': 'transparent',
-        'width': '56px',
-        'height': '56px',
-        'message': '🔬 Validando modelo...'
-    }
-}
-
-def render_spinner(style_key):
-    """Renderiza un spinner con estilo predefinido"""
-    style = SPINNER_STYLES.get(style_key, SPINNER_STYLES['bayesiano'])
-    
-    st.markdown(f"""
-    <div style="
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 30px 20px;
-        gap: 16px;
-        background: rgba(255,255,255,0.02);
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.05);
-    ">
-        <div style="
-            width: {style['width']};
-            height: {style['height']};
-            border: 4px solid rgba(255,255,255,0.05);
-            border-top-color: {style['border-color']};
-            border-radius: 50%;
-            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-            box-shadow: 0 0 30px rgba(0, 212, 255, 0.1);
-        "></div>
-        <div style="
-            color: #94a3b8;
-            font-size: 0.9rem;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        ">{style['message']}</div>
-        <div style="
-            color: #64748b;
-            font-size: 0.7rem;
-        ">Esto puede tomar unos segundos...</div>
-    </div>
-    <style>
-        @keyframes spin {{
-            0% {{ transform: rotate(0deg); }}
-            100% {{ transform: rotate(360deg); }}
-        }}
-    </style>
-    """, unsafe_allow_html=True)
 
 def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8,
                          use_hydration=True, use_dixon_coles=True, neutral_venue=False,
@@ -448,8 +381,7 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
     
     if use_xgboost:
         try:
-            with st.spinner(""):
-                render_spinner('xgboost')  # ✅ Sin dos puntos
+            with st.spinner("⚙️ Entrenando XGBoost..."):
                 hist = raw[(raw.date <= CUTOFF) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
                 hist = hist[hist.date >= train_start].copy()
                 sm_xgb, lam_h_xgb, lam_a_xgb, team_stats = train_xgboost_model(
@@ -528,8 +460,7 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
 
     if use_bayesian and config.PYMC_AVAILABLE:
         try:
-            with st.spinner(""):
-                render_spinner('bayesiano')  # ✅ Sin dos puntos
+            with st.spinner("🧠 Entrenando Bayesiano (1-2 min)..."):
                 sm_bayes, lam_h_bayes, lam_a_bayes, att_ratings, def_ratings = train_bayesian_model(
                     train, teams, team_idx, home_team, away_team, max_goals_display,
                     use_hydration, use_dixon_coles, neutral_venue, use_high_scoring
@@ -600,7 +531,6 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
                     errores.append("Bayesiano falló")
         except Exception as e:
             errores.append(f"Bayesiano: {str(e)[:100]}")
-
 
     # ========================================================================
     # CALCULAR RESULTADOS PROXIMALES (FUERA DE LOS MODELOS)
