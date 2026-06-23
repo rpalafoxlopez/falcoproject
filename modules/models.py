@@ -53,6 +53,8 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
                             progressbar=False, return_inferencedata=True)
 
         post = idata.posterior
+        
+        # ✅ Asegurar que los valores sean numpy arrays antes de flatten
         intercept_vals = post["intercept"].values.flatten()
         home_adv_vals = post["home_adv"].values.flatten()
         attack_vals = post["attack"].values.reshape(-1, post["attack"].shape[-1])
@@ -73,7 +75,6 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
         if use_hydration:
             lam_h, lam_a = corrections.ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
 
-        # Aplicar ajuste de alta anotación
         if use_high_scoring:
             lam_h, lam_a = corrections.ajuste_completo_alta_anotacion(
                 lam_h, lam_a, home_team, away_team, stats_h, stats_a
@@ -84,7 +85,6 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
         pmf_a = poisson.pmf(goals, lam_a)
         score_matrix = np.outer(pmf_h, pmf_a)
 
-        # Aplicar ajuste de matriz de alta anotación
         if use_high_scoring:
             score_matrix = corrections.ajustar_matriz_alta_anotacion(score_matrix, lam_h, lam_a, max_goals)
 
@@ -95,14 +95,18 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
             if suma > 0:
                 score_matrix = score_matrix / suma
 
-        att_ratings = {team: post["attack"].sel(team=team).mean().item() for team in teams}
-        def_ratings = {team: post["defense"].sel(team=team).mean().item() for team in teams}
+        # ✅ Extraer ratings correctamente
+        att_ratings = {}
+        def_ratings = {}
+        for team in teams:
+            att_ratings[team] = float(post["attack"].sel(team=team).mean().item())
+            def_ratings[team] = float(post["defense"].sel(team=team).mean().item())
 
         return score_matrix, lam_h, lam_a, att_ratings, def_ratings
     except Exception as e:
         st.warning(f"⚠️ Bayesiano: {str(e)}")
         return None, None, None, None, None
-
+        
 def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
                         use_hydration=True, use_dixon_coles=True, neutral_venue=False,
                         use_high_scoring=True):
@@ -134,9 +138,11 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             ratings[row.away_team] = ra - delta
 
         hist = hist.copy()
-        hist["elo_home"], hist["elo_away"] = elo_h_list, elo_a_list
+        hist["elo_home"] = elo_h_list
+        hist["elo_away"] = elo_a_list
         final_elo = ratings
 
+        # Calcular forma reciente
         records = {}
         gf10_h, ga10_h, form5_h = [], [], []
         gf10_a, ga10_a, form5_a = [], [], []
@@ -154,16 +160,25 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
 
             hgf, hga, hpts = summarize(h_rec)
             agf, aga, apts = summarize(a_rec)
-            gf10_h.append(hgf); ga10_h.append(hga); form5_h.append(hpts)
-            gf10_a.append(agf); ga10_a.append(aga); form5_a.append(apts)
+            gf10_h.append(hgf)
+            ga10_h.append(hga)
+            form5_h.append(hpts)
+            gf10_a.append(agf)
+            ga10_a.append(aga)
+            form5_a.append(apts)
 
             h_pts = 3 if row.home_score > row.away_score else (1 if row.home_score == row.away_score else 0)
             a_pts = 3 if row.away_score > row.home_score else (1 if row.home_score == row.away_score else 0)
             records.setdefault(row.home_team, []).append((row.date, row.home_score, row.away_score, h_pts))
             records.setdefault(row.away_team, []).append((row.date, row.away_score, row.home_score, a_pts))
 
-        hist["gf10_h"], hist["gf10_a"], hist["form5_h"] = gf10_h, ga10_h, form5_h
-        hist["gf10_a"], hist["ga10_a"], hist["form5_a"] = gf10_a, ga10_a, form5_a
+        # ✅ CORREGIDO: Asignar correctamente las columnas
+        hist["gf10_h"] = gf10_h
+        hist["ga10_h"] = ga10_h
+        hist["form5_h"] = form5_h
+        hist["gf10_a"] = gf10_a
+        hist["ga10_a"] = ga10_a
+        hist["form5_a"] = form5_a
         final_form = records
 
         def to_long(df):
@@ -172,15 +187,25 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             is_home_value = 0 if neutral_venue else 1
 
             home_rows = pd.DataFrame({
-                "team": df.home_team, "goals": df.home_score, "is_home": is_home_value,
-                "elo_team": df.elo_home, "elo_opponent": df.elo_away,
-                "gf10": df.gf10_h, "ga10": df.ga10_h, "form5": df.form5_h,
+                "team": df.home_team,
+                "goals": df.home_score,
+                "is_home": is_home_value,
+                "elo_team": df.elo_home,
+                "elo_opponent": df.elo_away,
+                "gf10": df.gf10_h,
+                "ga10": df.ga10_h,
+                "form5": df.form5_h,
                 "tournament_weight": df.tournament_weight,
             })
             away_rows = pd.DataFrame({
-                "team": df.away_team, "goals": df.away_score, "is_home": 0,
-                "elo_team": df.elo_away, "elo_opponent": df.elo_home,
-                "gf10": df.gf10_a, "ga10": df.ga10_a, "form5": df.form5_a,
+                "team": df.away_team,
+                "goals": df.away_score,
+                "is_home": 0,
+                "elo_team": df.elo_away,
+                "elo_opponent": df.elo_home,
+                "gf10": df.gf10_a,
+                "ga10": df.ga10_a,
+                "form5": df.form5_a,
                 "tournament_weight": df.tournament_weight,
             })
             long = pd.concat([home_rows, away_rows], ignore_index=True)
@@ -224,7 +249,6 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         if use_hydration:
             lam_h, lam_a = corrections.ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
 
-        # Aplicar ajuste de alta anotación
         if use_high_scoring:
             lam_h, lam_a = corrections.ajuste_completo_alta_anotacion(
                 lam_h, lam_a, home_team, away_team, stats_h, stats_a
@@ -233,7 +257,6 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         goals = np.arange(0, max_goals + 1)
         score_matrix = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
 
-        # Aplicar ajuste de matriz de alta anotación
         if use_high_scoring:
             score_matrix = corrections.ajustar_matriz_alta_anotacion(score_matrix, lam_h, lam_a, max_goals)
 
