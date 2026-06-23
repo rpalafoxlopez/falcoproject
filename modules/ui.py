@@ -1,9 +1,9 @@
-# modules/ui.py - Componentes de interfaz de usuario
+# modules/ui.py - Componentes de interfaz de usuario (COMPLETO)
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime
+from matplotlib.colors import LinearSegmentedColormap
 import sys
 
 from . import config
@@ -14,53 +14,72 @@ def render_header():
     st.markdown("""
     <div class="title-bar">
         <h1>⚽ PREDICCIÓN DE MARCADORES</h1>
-        <p>Mundial FIFA 2026 — Modelos Bayesiano &amp; XGBoost</p>
+        <p>Mundial FIFA 2026 — Modelo Bayesiano Jerárquico</p>
         <div class="badge-row">
             <span class="badge">Dixon-Coles</span>
-            <span class="badge">XGBoost</span>
+            <span class="badge">Bayesiano</span>
             <span class="badge gold">Mundial 2026</span>
             <span class="badge">4 Tiempos</span>
+            <span class="badge">Alta Anotación</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 def render_status_bar():
-    """Renderiza la barra de estado"""
+    """Renderiza la barra de estado (sin tecnologías)"""
     st.markdown('<div class="status-bar">', unsafe_allow_html=True)
-    status_cols = st.columns(4)
+    status_cols = st.columns(3)
     with status_cols[0]:
-        st.markdown(f"""
-        <div class="status-item">
-            <div class="label">Python</div>
-            <div class="value cyan">{config.PYTHON_VERSION}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with status_cols[1]:
-        st.markdown(f"""
-        <div class="status-item">
-            <div class="label">PyMC</div>
-            <div class="value {'green' if config.PYMC_AVAILABLE else 'red'}">{'✅ Disponible' if config.PYMC_AVAILABLE else '❌ No disponible'}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with status_cols[2]:
-        st.markdown(f"""
-        <div class="status-item">
-            <div class="label">SKLearn</div>
-            <div class="value {'green' if config.SKLEARN_AVAILABLE else 'red'}">{'✅ Disponible' if config.SKLEARN_AVAILABLE else '❌ No disponible'}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with status_cols[3]:
         st.markdown(f"""
         <div class="status-item">
             <div class="label">Dixon-Coles ρ</div>
             <div class="value gold">{config.DIXON_COLES_RHO:.3f}</div>
         </div>
         """, unsafe_allow_html=True)
+    with status_cols[1]:
+        st.markdown(f"""
+        <div class="status-item">
+            <div class="label">Modelo Principal</div>
+            <div class="value cyan">Bayesiano</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with status_cols[2]:
+        st.markdown(f"""
+        <div class="status-item">
+            <div class="label">Ajustes Activos</div>
+            <div class="value cyan">4 Tiempos + DC + Alta Anotación</div>
+        </div>
+        """, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown("---")
-    
-    if not config.PYMC_AVAILABLE:
-        st.info("ℹ️ El modelo Bayesiano no está disponible. Solo se usará XGBoost.")
+
+def render_disclaimer():
+    """Muestra el disclaimer de uso responsable"""
+    st.markdown("""
+    <div style="
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin: 12px 0 24px 0;
+    ">
+        <p style="
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin: 0;
+            line-height: 1.5;
+        ">
+            <strong style="color: #ef4444;">⚠️ Aviso importante:</strong> 
+            Esta herramienta es un modelo estadístico con fines <strong>educativos y de entretenimiento</strong>. 
+            No constituye asesoramiento financiero, deportivo ni de apuestas. 
+            Las predicciones son estimaciones basadas en datos históricos y no garantizan resultados reales.
+            <br><br>
+            <span style="color: #64748b; font-size: 0.7rem;">
+                🔞 Prohibido su uso para menores de edad o para actividades de apuestas ilegales.
+            </span>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 def render_match_selector(wc_teams):
     """Renderiza los selectores de equipos y fecha"""
@@ -88,10 +107,9 @@ def render_match_selector(wc_teams):
     return home_team, away_team, match_date, train_start
 
 def render_model_selectors():
-    """Renderiza los selectores de modelos"""
-    use_xgboost = st.checkbox("✅ XGBoost", value=True)
-    use_bayesian = st.checkbox("✅ Bayesiano" if config.PYMC_AVAILABLE else "❌ Bayesiano (no disponible)",
-                               value=config.PYMC_AVAILABLE, disabled=not config.PYMC_AVAILABLE)
+    """Renderiza los selectores de modelos (Bayesiano como principal)"""
+    use_bayesian = st.checkbox("🔵 Bayesiano (recomendado)", value=True)
+    use_xgboost = st.checkbox("🟢 XGBoost (comparativo)", value=False)
     return use_xgboost, use_bayesian
 
 def render_corrections():
@@ -125,7 +143,8 @@ def render_momentum_adjustments():
     marcador_actual_a = 0
     
     if use_momentum:
-        minuto_gol_favorito = st.slider("⏱️ Minuto del gol del favorito", 1, 90, 85)
+        minuto_gol_favorito = st.slider("⏱️ Minuto del gol del favorito", 1, 90, 85, 
+                                       help="Si el favorito anota en el minuto 80+, aumenta sus chances")
         llegadas_previas_h = st.number_input("Llegadas del local en el cuarto anterior", 0, 20, 5)
         llegadas_previas_a = st.number_input("Llegadas del visitante en el cuarto anterior", 0, 20, 3)
         st.markdown("**Marcador actual:**")
@@ -137,35 +156,10 @@ def render_momentum_adjustments():
     
     return use_momentum, minuto_gol_favorito, llegadas_previas_h, llegadas_previas_a, marcador_actual_h, marcador_actual_a
 
-def render_disclaimer():
-    """Muestra el disclaimer sobre precisión antes del partido"""
-    st.markdown("""
-    <div style="
-        background: rgba(0, 212, 255, 0.08);
-        border: 1px solid rgba(0, 212, 255, 0.15);
-        border-radius: 12px;
-        padding: 16px 20px;
-        margin: 12px 0;
-    ">
-        <p style="
-            color: #94a3b8;
-            font-size: 0.85rem;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        ">
-            <span style="font-size: 1.2rem;">⚡</span>
-            <span>
-                <strong style="color: #00d4ff;">Precisión mejorada:</strong> 
-                Revisa la alineación 
-                <strong style="color: #ffffff;">1 hora antes del partido</strong> 
-                para obtener la predicción más precisa. Los factores de alineación 
-                pueden modificar significativamente el resultado esperado.
-            </span>
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+def render_high_scoring_adjustment():
+    """Renderiza el ajuste de alta anotación"""
+    return st.checkbox("⚽ Ajuste por alta anotación", value=True, 
+                       help="Aumenta probabilidad de partidos con +3 goles (ej: Noruega 3-2)")
 
 def plot_results(sm, home_team, away_team, title, max_display=7):
     """Genera los gráficos de resultados"""
@@ -180,10 +174,10 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     fig.patch.set_facecolor('#0a0e1a')
     fig.suptitle(f"{home_team} vs {away_team} — {title}", fontsize=16, fontweight="bold", color='white', y=0.98)
 
-    from matplotlib.colors import LinearSegmentedColormap
     colors = ['#0a0e1a', '#1a3a6b', '#2d5a9a', '#00d4ff', '#ffffff']
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
 
+    # Heatmap
     ax0 = axes[0]
     ax0.set_facecolor('#111827')
     im = ax0.imshow(sm_disp, cmap=custom_cmap, vmin=0, origin="upper")
@@ -206,6 +200,7 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     cbar = plt.colorbar(im, ax=ax0, fraction=0.046, pad=0.04)
     cbar.ax.tick_params(colors='#94a3b8')
 
+    # 1X2 bars
     ax1 = axes[1]
     ax1.set_facecolor('#111827')
     home_win = np.sum(np.tril(sm_disp, k=-1))
@@ -230,6 +225,7 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
         spine.set_color((1, 1, 1, 0.1))
     ax1.spines[["top", "right"]].set_visible(False)
 
+    # Top 10 scores
     ax2 = axes[2]
     ax2.set_facecolor('#111827')
     flat = np.argsort(sm.ravel())[::-1][:10]
@@ -261,7 +257,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
 
 def render_results(results, elo, dixon_coles_rho):
     """Renderiza los resultados de la predicción"""
-    # ✅ Verificar que 'teams' existe
     if 'teams' not in results:
         st.error("❌ No hay resultados para mostrar. Los modelos no pudieron generar predicciones.")
         return
@@ -273,7 +268,6 @@ def render_results(results, elo, dixon_coles_rho):
     st.markdown("---")
     st.subheader("📊 Resumen de Predicción")
 
-    # Filtrar solo los modelos que tienen datos válidos
     valid_models = []
     for key, value in results.items():
         if key not in ['teams', 'elo'] and value is not None:
@@ -290,7 +284,7 @@ def render_results(results, elo, dixon_coles_rho):
     for model_name in valid_models:
         model_data = results[model_name]
         with cols[col_idx % len(cols)]:
-            display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
+            display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
             st.metric(
                 f"🏠 {home_team[:10]} ({display_name})",
                 f"{model_data['lam_h']:.2f}",
@@ -333,6 +327,29 @@ def render_results(results, elo, dixon_coles_rho):
 
             top_idx = np.unravel_index(model_data['score_matrix'][:7,:7].argmax(), (7,7))
             st.info(f"🎯 Marcador más probable: **{top_idx[0]}-{top_idx[1]}**")
+
+            # Mostrar correcciones aplicadas
+            correcciones = []
+            if 'use_dixon_coles' in st.session_state:
+                if st.session_state.use_dixon_coles:
+                    correcciones.append("🔧 DC")
+            if 'use_hydration' in st.session_state:
+                if st.session_state.use_hydration:
+                    correcciones.append("💧 4 tiempos")
+            if 'use_high_scoring' in st.session_state:
+                if st.session_state.use_high_scoring:
+                    correcciones.append("⚽ Alta anotación")
+            if 'use_dynamic' in st.session_state:
+                if st.session_state.use_dynamic:
+                    correcciones.append("⚡ Gol temprano")
+            if 'use_momentum' in st.session_state:
+                if st.session_state.use_momentum:
+                    correcciones.append("⚡ Momentum")
+            if 'neutral_venue' in st.session_state:
+                if st.session_state.neutral_venue:
+                    correcciones.append("🏟️ Neutral")
+            if correcciones:
+                st.caption(f"📌 Ajustes: {' · '.join(correcciones)}")
 
             if model_name == 'xgb' and 'team_stats' in model_data:
                 with st.expander("📈 Estadísticas de los equipos (ESPN)"):
@@ -380,41 +397,35 @@ def render_results(results, elo, dixon_coles_rho):
         st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
 def render_footer():
-    """Renderiza el footer"""
+    """Renderiza el footer (sin tecnologías)"""
     st.markdown("---")
     st.markdown("""
     <div class="footer">
         <p>
-            ⚽ Datos: martj42/international_results
+            ⚽ Modelo Bayesiano Jerárquico — Mundial FIFA 2026
             <span class="separator">·</span>
             🔧 Dixon-Coles (ρ=-0.13)
             <span class="separator">·</span>
             💧 Ajuste por 4 tiempos
             <span class="separator">·</span>
-            ⚡ Gol temprano del underdog
-            <span class="separator">·</span>
-            ⚡ Momentum
+            ⚽ Ajuste por alta anotación
         </p>
-        <p style="margin-top: 8px;">
-            <a href="https://rpalafoxfalcoproject.streamlit.app" target="_blank">🔗 Abrir en nueva ventana</a>
+        <p style="margin-top: 8px; color: #64748b; font-size: 0.7rem;">
+            <a href="https://satohachi.rpalafox.com/" target="_blank" style="color: #00d4ff;">🐝 rpalafox.com</a>
             <span class="separator">·</span>
-            <a href="https://satohachi.rpalafox.com/" target="_blank">🐝 rpalafox.com</a>
+            <span style="color: #64748b;">Uso exclusivamente educativo y de entretenimiento</span>
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-def render_system_info(num_teams):
-    """Renderiza la información del sistema"""
+def render_system_info(num_teams, raw):
+    """Renderiza la información del sistema (sin tecnologías)"""
     col1, col2 = st.columns(2)
     with col1:
-        st.write(f"**Python:** `{sys.version}`")
-        st.write(f"**PyMC:** {'✅ Disponible' if config.PYMC_AVAILABLE else '❌ No disponible'}")
-        st.write(f"**SKLearn:** {'✅ Disponible' if config.SKLEARN_AVAILABLE else '❌ No disponible'}")
-    with col2:
+        st.write(f"**Modelo principal:** Bayesiano Jerárquico")
         st.write(f"**Dixon-Coles ρ:** `{config.DIXON_COLES_RHO:.3f}`")
         st.write(f"**Equipos clasificados:** `{num_teams}`")
-        if config.PYMC_AVAILABLE:
-            import pymc as pm
-            import arviz as az
-            st.write(f"**PyMC versión:** `{pm.__version__}`")
-            st.write(f"**ArviZ versión:** `{az.__version__}`")
+    with col2:
+        st.write(f"**Ajustes activos:** Pausas de hidratación, alta anotación")
+        st.write(f"**Ventana de datos:** 2018-2026")
+        st.write(f"**Partidos históricos:** `{len(raw):,}`")

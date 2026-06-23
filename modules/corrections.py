@@ -133,3 +133,64 @@ def ajustar_por_momentum(lam_h, lam_a, home_team, away_team,
             lam_a *= 1.06
 
     return lam_h, lam_a
+
+# ============================================================================
+# NUEVOS AJUSTES PARA ALTA ANOTACIÓN
+# ============================================================================
+
+def ajuste_completo_alta_anotacion(lam_h, lam_a, home_team, away_team,
+                                    stats_h=None, stats_a=None):
+    """
+    Combina todos los ajustes para partidos de alta anotación
+    """
+    # 1. Factor de alta anotación histórica
+    if stats_h is not None and stats_a is not None:
+        avg_goles_h = stats_h.get('avg_goles', 1.5)
+        avg_goles_a = stats_a.get('avg_goles', 1.5)
+        
+        if avg_goles_h > 2.0 and avg_goles_a > 1.8:
+            lam_h *= 1.12
+            lam_a *= 1.12
+        elif avg_goles_h > 2.0:
+            lam_h *= 1.08
+        elif avg_goles_a > 2.0:
+            lam_a *= 1.08
+    
+    # 2. Factor de partidos con ambos anotan
+    both_score_h = stats_h.get('both_score_pct', 0.5) if stats_h else 0.5
+    both_score_a = stats_a.get('both_score_pct', 0.5) if stats_a else 0.5
+    
+    if both_score_h > 0.65 and both_score_a > 0.65:
+        lam_h *= 1.06
+        lam_a *= 1.06
+    
+    # 3. Factor de goleadores en racha (basado en Elo ofensivo)
+    attack_h = stats_h.get('attack', 1.5) if stats_h else 1.5
+    attack_a = stats_a.get('attack', 1.5) if stats_a else 1.5
+    
+    if attack_h > 2.0 and attack_a > 1.8:
+        lam_h *= 1.05
+        lam_a *= 1.05
+    
+    return lam_h, lam_a
+
+def ajustar_matriz_alta_anotacion(score_matrix, lam_h, lam_a, max_g=8):
+    """
+    Ajusta la matriz para dar más peso a marcadores de alta anotación
+    """
+    ajuste = np.ones_like(score_matrix)
+    
+    for i in range(max_g + 1):
+        for j in range(max_g + 1):
+            total_goles = i + j
+            if total_goles >= 4:
+                ajuste[i, j] = 1.15
+            elif total_goles >= 3:
+                ajuste[i, j] = 1.08
+    
+    score_matrix_ajustada = score_matrix * ajuste
+    suma = score_matrix_ajustada.sum()
+    if suma > 0:
+        score_matrix_ajustada = score_matrix_ajustada / suma
+    
+    return score_matrix_ajustada

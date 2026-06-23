@@ -7,12 +7,106 @@ from scipy.stats import poisson
 from . import config
 from . import data_loader
 from . import corrections
-from . import predictors
+
+def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8,
+                         use_hydration=True, use_dixon_coles=True, neutral_venue=False,
+                         use_high_scoring=True):
+    """Entrena el modelo Bayesiano - MODELO PRINCIPAL"""
+    if not config.PYMC_AVAILABLE:
+        return None, None, None, None, None
+    
+    try:
+        import pymc as pm
+        import arviz as az
+        
+        home_idx = train.home_team.map(team_idx).values
+        away_idx = train.away_team.map(team_idx).values
+        home_goals = train.home_score.values
+        away_goals = train.away_score.values
+
+        coords = {"team": teams}
+        with pm.Model(coords=coords) as bayes_model:
+            sigma_att = pm.HalfNormal("sigma_att", sigma=1.0)
+            sigma_def = pm.HalfNormal("sigma_def", sigma=1.0)
+
+            attack_raw = pm.Normal("attack_raw", mu=0.0, sigma=sigma_att, dims="team")
+            defense_raw = pm.Normal("defense_raw", mu=0.0, sigma=sigma_def, dims="team")
+
+            attack = pm.Deterministic("attack", attack_raw - attack_raw.mean(), dims="team")
+            defense = pm.Deterministic("defense", defense_raw - defense_raw.mean(), dims="team")
+
+            if neutral_venue:
+                home_adv = pm.Deterministic("home_adv", 0.0)
+            else:
+                home_adv = pm.Normal("home_adv", mu=0.3, sigma=0.5)
+
+            intercept = pm.Normal("intercept", mu=0.0, sigma=1.0)
+
+            log_theta_home = intercept + home_adv + attack[home_idx] - defense[away_idx]
+            log_theta_away = intercept + attack[away_idx] - defense[home_idx]
+
+            pm.Poisson("home_goals_obs", mu=pm.math.exp(log_theta_home), observed=home_goals)
+            pm.Poisson("away_goals_obs", mu=pm.math.exp(log_theta_away), observed=away_goals)
+
+            idata = pm.sample(draws=500, tune=500, chains=2, cores=1,
+                            random_seed=42, target_accept=0.85,
+                            progressbar=False, return_inferencedata=True)
+
+        post = idata.posterior
+        intercept_vals = post["intercept"].values.flatten()
+        home_adv_vals = post["home_adv"].values.flatten()
+        attack_vals = post["attack"].values.reshape(-1, post["attack"].shape[-1])
+        defense_vals = post["defense"].values.reshape(-1, post["defense"].shape[-1])
+
+        hi, ai = team_idx[home_team], team_idx[away_team]
+        log_th = intercept_vals + home_adv_vals + attack_vals[:, hi] - defense_vals[:, ai]
+        log_ta = intercept_vals + attack_vals[:, ai] - defense_vals[:, hi]
+        lam_h = np.exp(log_th).mean()
+        lam_a = np.exp(log_ta).mean()
+
+        # Obtener stats para ajustes
+        stats_h = data_loader.get_espn_team_stats(home_team)
+        stats_a = data_loader.get_espn_team_stats(away_team)
+        elo_h = stats_h.get('elo', 1750)
+        elo_a = stats_a.get('elo', 1750)
+
+        if use_hydration:
+            lam_h, lam_a = corrections.ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
+
+        # Aplicar ajuste de alta anotación
+        if use_high_scoring:
+            lam_h, lam_a = corrections.ajuste_completo_alta_anotacion(
+                lam_h, lam_a, home_team, away_team, stats_h, stats_a
+            )
+
+        goals = np.arange(0, max_goals + 1)
+        pmf_h = poisson.pmf(goals, lam_h)
+        pmf_a = poisson.pmf(goals, lam_a)
+        score_matrix = np.outer(pmf_h, pmf_a)
+
+        # Aplicar ajuste de matriz de alta anotación
+        if use_high_scoring:
+            score_matrix = corrections.ajustar_matriz_alta_anotacion(score_matrix, lam_h, lam_a, max_goals)
+
+        if use_dixon_coles:
+            score_matrix = corrections.aplicar_dixon_coles(score_matrix, lam_h, lam_a)
+        else:
+            suma = score_matrix.sum()
+            if suma > 0:
+                score_matrix = score_matrix / suma
+
+        att_ratings = {team: post["attack"].sel(team=team).mean().item() for team in teams}
+        def_ratings = {team: post["defense"].sel(team=team).mean().item() for team in teams}
+
+        return score_matrix, lam_h, lam_a, att_ratings, def_ratings
+    except Exception as e:
+        st.warning(f"⚠️ Bayesiano: {str(e)}")
+        return None, None, None, None, None
 
 def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
                         use_hydration=True, use_dixon_coles=True, neutral_venue=False,
-                        roster_factors=None):
-    """Entrena el modelo XGBoost y retorna predicciones"""
+                        use_high_scoring=True):
+    """Entrena el modelo XGBoost - MODELO COMPARATIVO"""
     try:
         import xgboost as xgb
         K_ELO = 20.0
@@ -68,7 +162,7 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
             records.setdefault(row.home_team, []).append((row.date, row.home_score, row.away_score, h_pts))
             records.setdefault(row.away_team, []).append((row.date, row.away_score, row.home_score, a_pts))
 
-        hist["gf10_h"], hist["ga10_h"], hist["form5_h"] = gf10_h, ga10_h, form5_h
+        hist["gf10_h"], hist["gf10_a"], hist["form5_h"] = gf10_h, ga10_h, form5_h
         hist["gf10_a"], hist["ga10_a"], hist["form5_a"] = gf10_a, ga10_a, form5_a
         final_form = records
 
@@ -130,14 +224,18 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         if use_hydration:
             lam_h, lam_a = corrections.ajustar_por_pausas_hidratacion(lam_h, lam_a, elo_h, elo_a)
 
-        # Aplicar factores de alineación si están disponibles
-        if roster_factors:
-            lam_h, lam_a = predictors.adjust_by_roster_factors(
-                lam_h, lam_a, home_team, away_team, roster_factors
+        # Aplicar ajuste de alta anotación
+        if use_high_scoring:
+            lam_h, lam_a = corrections.ajuste_completo_alta_anotacion(
+                lam_h, lam_a, home_team, away_team, stats_h, stats_a
             )
 
         goals = np.arange(0, max_goals + 1)
         score_matrix = np.outer(poisson.pmf(goals, lam_h), poisson.pmf(goals, lam_a))
+
+        # Aplicar ajuste de matriz de alta anotación
+        if use_high_scoring:
+            score_matrix = corrections.ajustar_matriz_alta_anotacion(score_matrix, lam_h, lam_a, max_goals)
 
         if use_dixon_coles:
             score_matrix = corrections.aplicar_dixon_coles(score_matrix, lam_h, lam_a)
@@ -156,97 +254,13 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         st.error(f"❌ XGBoost: {str(e)}")
         return None, None, None, None
 
-def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8,
-                         use_hydration=True, use_dixon_coles=True, neutral_venue=False,
-                         roster_factors=None):
-    """Entrena el modelo Bayesiano"""
-    if not config.PYMC_AVAILABLE:
-        return None, None, None, None, None
-    
-    try:
-        import pymc as pm
-        import arviz as az
-        
-        home_idx = train.home_team.map(team_idx).values
-        away_idx = train.away_team.map(team_idx).values
-        home_goals = train.home_score.values
-        away_goals = train.away_score.values
-
-        coords = {"team": teams}
-        with pm.Model(coords=coords) as bayes_model:
-            sigma_att = pm.HalfNormal("sigma_att", sigma=1.0)
-            sigma_def = pm.HalfNormal("sigma_def", sigma=1.0)
-
-            attack_raw = pm.Normal("attack_raw", mu=0.0, sigma=sigma_att, dims="team")
-            defense_raw = pm.Normal("defense_raw", mu=0.0, sigma=sigma_def, dims="team")
-
-            attack = pm.Deterministic("attack", attack_raw - attack_raw.mean(), dims="team")
-            defense = pm.Deterministic("defense", defense_raw - defense_raw.mean(), dims="team")
-
-            if neutral_venue:
-                home_adv = pm.Deterministic("home_adv", 0.0)
-            else:
-                home_adv = pm.Normal("home_adv", mu=0.3, sigma=0.5)
-
-            intercept = pm.Normal("intercept", mu=0.0, sigma=1.0)
-
-            log_theta_home = intercept + home_adv + attack[home_idx] - defense[away_idx]
-            log_theta_away = intercept + attack[away_idx] - defense[home_idx]
-
-            pm.Poisson("home_goals_obs", mu=pm.math.exp(log_theta_home), observed=home_goals)
-            pm.Poisson("away_goals_obs", mu=pm.math.exp(log_theta_away), observed=away_goals)
-
-            idata = pm.sample(draws=500, tune=500, chains=2, cores=1,
-                            random_seed=42, target_accept=0.85,
-                            progressbar=False, return_inferencedata=True)
-
-        post = idata.posterior
-        intercept_vals = post["intercept"].values.flatten()
-        home_adv_vals = post["home_adv"].values.flatten()
-        attack_vals = post["attack"].values.reshape(-1, post["attack"].shape[-1])
-        defense_vals = post["defense"].values.reshape(-1, post["defense"].shape[-1])
-
-        hi, ai = team_idx[home_team], team_idx[away_team]
-        log_th = intercept_vals + home_adv_vals + attack_vals[:, hi] - defense_vals[:, ai]
-        log_ta = intercept_vals + attack_vals[:, ai] - defense_vals[:, hi]
-        lam_h = np.exp(log_th).mean()
-        lam_a = np.exp(log_ta).mean()
-
-        if use_hydration:
-            lam_h, lam_a = corrections.ajustar_por_pausas_hidratacion(lam_h, lam_a)
-
-        # Aplicar factores de alineación si están disponibles
-        if roster_factors:
-            lam_h, lam_a = predictors.adjust_by_roster_factors(
-                lam_h, lam_a, home_team, away_team, roster_factors
-            )
-
-        goals = np.arange(0, max_goals + 1)
-        pmf_h = poisson.pmf(goals, lam_h)
-        pmf_a = poisson.pmf(goals, lam_a)
-        score_matrix = np.outer(pmf_h, pmf_a)
-
-        if use_dixon_coles:
-            score_matrix = corrections.aplicar_dixon_coles(score_matrix, lam_h, lam_a)
-        else:
-            suma = score_matrix.sum()
-            if suma > 0:
-                score_matrix = score_matrix / suma
-
-        att_ratings = {team: post["attack"].sel(team=team).mean().item() for team in teams}
-        def_ratings = {team: post["defense"].sel(team=team).mean().item() for team in teams}
-
-        return score_matrix, lam_h, lam_a, att_ratings, def_ratings
-    except Exception as e:
-        st.warning(f"⚠️ Bayesiano: {str(e)}")
-        return None, None, None, None, None
-
 def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_venue,
                    use_xgboost, use_bayesian, use_dixon_coles, use_hydration,
                    use_dynamic, underdog_scored_first, minuto_gol,
                    use_momentum, minuto_gol_favorito, llegadas_previas_h, llegadas_previas_a,
                    marcador_actual_h, marcador_actual_a, max_goals_display,
-                   roster_factors, home_team_roster, away_team_roster):
+                   roster_factors, home_team_roster, away_team_roster,
+                   use_high_scoring):
     """Ejecuta la predicción completa"""
     
     # Preparar datos
@@ -276,21 +290,11 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
         favorito_elo = elo_a
         underdog_elo = elo_h
 
-    # ✅ Inicializar results y errores UNA SOLA VEZ
     results = {}
     errores = []
     
-    # ✅ Agregar teams y elo al resultado desde el inicio
     results['teams'] = (home_team, away_team)
     results['elo'] = {'home': elo_h, 'away': elo_a}
-
-    # Preparar factores de alineación
-    roster_factors_dict = None
-    if roster_factors:
-        roster_factors_dict = {
-            'home': home_team_roster,
-            'away': away_team_roster
-        }
 
     # XGBoost
     if use_xgboost:
@@ -300,7 +304,7 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
                 hist = hist[hist.date >= train_start].copy()
                 sm_xgb, lam_h_xgb, lam_a_xgb, team_stats = train_xgboost_model(
                     hist, raw, home_team, away_team, max_goals_display,
-                    use_hydration, use_dixon_coles, neutral_venue, roster_factors_dict
+                    use_hydration, use_dixon_coles, neutral_venue, use_high_scoring
                 )
                 if sm_xgb is not None:
                     if use_momentum:
@@ -348,7 +352,7 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
             with st.spinner("⚙️ Entrenando Bayesiano (1-2 min)..."):
                 sm_bayes, lam_h_bayes, lam_a_bayes, att_ratings, def_ratings = train_bayesian_model(
                     train, teams, team_idx, home_team, away_team, max_goals_display,
-                    use_hydration, use_dixon_coles, neutral_venue, roster_factors_dict
+                    use_hydration, use_dixon_coles, neutral_venue, use_high_scoring
                 )
                 if sm_bayes is not None:
                     if use_momentum:

@@ -104,7 +104,6 @@ def render_validation_modal(raw, corrections):
         <div class="modal-content">
     """, unsafe_allow_html=True)
 
-    # Título del modal
     st.markdown("""
     <h2>🔬 Validación del Modelo</h2>
     <p style="margin-bottom: 16px;">
@@ -113,7 +112,6 @@ def render_validation_modal(raw, corrections):
     </p>
     """, unsafe_allow_html=True)
 
-    # Botón para cerrar
     if st.button("✕ Cerrar", key="close_modal_btn_validation"):
         st.session_state.show_validation = False
         st.rerun()
@@ -122,7 +120,6 @@ def render_validation_modal(raw, corrections):
 
     with st.spinner("🔄 Ejecutando validación (puede tomar 1-2 minutos)..."):
         try:
-            # Usar los últimos 12 meses de datos disponibles
             max_date = raw["date"].max()
             train_end = (max_date - pd.Timedelta(days=365)).strftime("%Y-%m-%d")
 
@@ -137,7 +134,7 @@ def render_validation_modal(raw, corrections):
                 st.markdown("</div></div>", unsafe_allow_html=True)
                 st.stop()
 
-            # Entrenar modelo base (simplificado)
+            # Entrenar modelo base (simplificado para validación)
             def entrenar_modelo_validacion(df):
                 import xgboost as xgb
                 K_ELO = 20.0
@@ -226,7 +223,7 @@ def render_validation_modal(raw, corrections):
                 raw[(raw.date <= train_end) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
             )
 
-            # Evaluar sin pausas (simplificado)
+            # Evaluar sin pausas
             aciertos_a = 0
             for _, row in test_data.iterrows():
                 def get_snapshot(team):
@@ -261,7 +258,7 @@ def render_validation_modal(raw, corrections):
                     aciertos_a += 1
             acc_a = aciertos_a / len(test_data)
 
-            # Evaluar con pausas (simplificado)
+            # Evaluar con pausas
             aciertos_b = 0
             for _, row in test_data.iterrows():
                 def get_snapshot(team):
@@ -328,5 +325,4 @@ def render_validation_modal(raw, corrections):
                 st.session_state.show_validation = False
                 st.rerun()
 
-    # Cerrar los divs del modal
     st.markdown("</div></div>", unsafe_allow_html=True)

@@ -1,4 +1,4 @@
-# modules/team_roster.py - Alineaciones y jugadores
+# modules/team_roster.py - Alineaciones y jugadores (COMPLETO)
 import streamlit as st
 import json
 import os
@@ -39,6 +39,13 @@ PLAYER_DATABASE = {
         'defenders': ['Saliba', 'Upamecano', 'Hernández', 'Koundé'],
         'goalkeeper': ['Maignan'],
         'top_scorer': {'Mbappé': 9, 'Griezmann': 5, 'Thuram': 4}
+    },
+    'Norway': {
+        'attackers': ['Haaland', 'Sørloth', 'Ødegaard'],
+        'midfielders': ['Berge', 'Thorsby', 'Aursnes'],
+        'defenders': ['Ajer', 'Strandberg', 'Meling', 'Pedersen'],
+        'goalkeeper': ['Nyland'],
+        'top_scorer': {'Haaland': 10, 'Sørloth': 4, 'Ødegaard': 3}
     }
 }
 
@@ -54,6 +61,8 @@ PLAYER_FORM = {
     'Vinicius Jr': {'form': 'Excelente', 'goals_last_5': 6, 'factor': 1.18},
     'Mbappé': {'form': 'Excelente', 'goals_last_5': 8, 'factor': 1.20},
     'Ochoa': {'form': 'Regular', 'goals_last_5': 0, 'factor': 0.90},
+    'Haaland': {'form': 'Excelente', 'goals_last_5': 9, 'factor': 1.25},
+    'Ødegaard': {'form': 'Buena', 'goals_last_5': 4, 'factor': 1.10},
 }
 
 def get_team_roster(team_name):
@@ -75,13 +84,11 @@ def get_top_scorers(team_name, limit=3):
 
 def get_player_form(player_name):
     """Obtiene el estado de forma de un jugador"""
-    form_data = PLAYER_FORM.get(player_name, {'form': 'Sin datos', 'goals_last_5': 0, 'factor': 1.0})
-    return form_data
+    return PLAYER_FORM.get(player_name, {'form': 'Sin datos', 'goals_last_5': 0, 'factor': 1.0})
 
 def get_player_momentum_factor(player_name):
     """Factor de momentum para un jugador"""
-    form_data = PLAYER_FORM.get(player_name, {'factor': 1.0})
-    return form_data.get('factor', 1.0)
+    return PLAYER_FORM.get(player_name, {'factor': 1.0}).get('factor', 1.0)
 
 def display_roster_preview(home_team, away_team):
     """Muestra un preview de las alineaciones"""
@@ -95,9 +102,8 @@ def display_roster_preview(home_team, away_team):
         st.write(f"🛡️ **Defensas:** {', '.join(roster_h['defenders'])}")
         st.write(f"🧤 **Portero:** {', '.join(roster_h['goalkeeper'])}")
         
-        # Mostrar goleadores
         scorers = get_top_scorers(home_team, 3)
-        if scorers:
+        if scorers and scorers[0] != 'Sin datos':
             st.write(f"⚽ **Máximos goleadores:** {', '.join(scorers)}")
         
     with col2:
@@ -109,7 +115,7 @@ def display_roster_preview(home_team, away_team):
         st.write(f"🧤 **Portero:** {', '.join(roster_a['goalkeeper'])}")
         
         scorers = get_top_scorers(away_team, 3)
-        if scorers:
+        if scorers and scorers[0] != 'Sin datos':
             st.write(f"⚽ **Máximos goleadores:** {', '.join(scorers)}")
     
     # Mostrar estado de forma de jugadores clave

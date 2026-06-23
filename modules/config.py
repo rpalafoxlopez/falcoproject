@@ -9,7 +9,7 @@ MAX_GOALS_DEFAULT = 8
 TRAIN_WINDOWS = ["2018-01-01", "2016-01-01", "2014-01-01", "2010-01-01"]
 TRAIN_WINDOW_DEFAULT = "2018-01-01"
 
-# Dependencias
+# Dependencias (solo para uso interno, no se muestra en UI)
 PYMC_AVAILABLE = False
 SKLEARN_AVAILABLE = False
 
@@ -26,5 +26,5 @@ try:
 except ImportError:
     pass
 
-# Versión de Python
+# Versión de Python (solo para referencia interna)
 PYTHON_VERSION = sys.version.split()[0]

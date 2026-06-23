@@ -1,6 +1,6 @@
-# app.py - Predicción Mundial 2026 - Versión Modular
+# app.py - Predicción Mundial 2026 - Versión Modular con Ajustes
 import streamlit as st
-import pandas as pd  
+import pandas as pd
 from modules import (
     config,
     data_loader,
@@ -40,11 +40,14 @@ def main():
     # 2. Filtrar equipos clasificados
     wc_teams = data_loader.filter_world_cup_teams(raw)
     
-    # 3. UI - Header y status
+    # 3. UI - Header y status (sin tecnologías)
     ui.render_header()
     ui.render_status_bar()
     
-    # 4. Sidebar
+    # 4. Disclaimer de uso responsable
+    ui.render_disclaimer()
+    
+    # 5. Sidebar
     with st.sidebar:
         st.sidebar.header("⚙️ Configuración del Partido")
         
@@ -58,32 +61,29 @@ def main():
                                    help="Anula la ventaja de localía")
         
         st.markdown("---")
-        st.subheader("📋 Factores del Partido")
+        st.subheader("🤖 Modelos a usar")
         
-        # 🔥 NUEVO: Factores dinámicos de alineación
-        use_roster_factors = st.checkbox("👥 Incluir factores de alineación", value=False, 
-                                         help="Ajusta predicción según alineación y estado de jugadores")
+        # Bayesiano como principal (seleccionado por defecto)
+        use_bayesian = st.checkbox("🔵 Bayesiano (recomendado)", value=True)
+        use_xgboost = st.checkbox("🟢 XGBoost (comparativo)", value=False)
         
-        if use_roster_factors:
-            # Disclaimer de precisión
-            ui.render_disclaimer()
-            
-            # Mostrar alineaciones estimadas
-            with st.expander("👥 Alineación estimada"):
-                team_roster.display_roster_preview(home_team, away_team)
-            
-            # Factores de jugadores
-            st.subheader("🎯 Factores de Jugadores")
-            top_scorers = predictors.get_top_scorers_summary(home_team, away_team)
-            st.caption(f"⚽ Máximos goleadores: {top_scorers}")
+        st.markdown("---")
+        st.subheader("🔧 Correcciones")
+        
+        use_dixon_coles = st.checkbox("🔧 Dixon-Coles", value=True, help="Corrige la subestimación de empates")
+        use_hydration = st.checkbox("💧 Pausas de hidratación (4 tiempos)", value=True)
+        
+        st.markdown("---")
+        st.subheader("⚡ Ajustes Dinámicos")
+        
+        use_dynamic, underdog_scored_first, minuto_gol = ui.render_dynamic_adjustments()
+        use_momentum, minuto_gol_favorito, llegadas_previas_h, llegadas_previas_a, marcador_actual_h, marcador_actual_a = ui.render_momentum_adjustments()
         
         st.markdown("---")
         
-        # 5. Modelos y correcciones
-        use_xgboost, use_bayesian = ui.render_model_selectors()
-        use_dixon_coles, use_hydration = ui.render_corrections()
-        use_dynamic, underdog_scored_first, minuto_gol = ui.render_dynamic_adjustments()
-        use_momentum, minuto_gol_favorito, llegadas_previas_h, llegadas_previas_a, marcador_actual_h, marcador_actual_a = ui.render_momentum_adjustments()
+        # 🔥 NUEVO: Ajuste de alta anotación
+        use_high_scoring = st.checkbox("⚽ Ajuste por alta anotación", value=True, 
+                                       help="Aumenta probabilidad de partidos con +3 goles (ej: Noruega 3-2)")
         
         max_goals_display = st.slider("📊 Máximo de goles a mostrar", 4, 10, 7)
         
@@ -97,7 +97,7 @@ def main():
         # 7. Botón de predicción
         predict_btn = st.button("🔮 Predecir", type="primary", use_container_width=True)
         
-        # 8. Validación
+        # 8. Validación (opcional)
         st.markdown("---")
         st.subheader("🔬 Validación del Modelo")
         if st.button("📊 Validar modelo", use_container_width=True):
@@ -130,9 +130,10 @@ def main():
             marcador_actual_h=marcador_actual_h,
             marcador_actual_a=marcador_actual_a,
             max_goals_display=max_goals_display,
-            roster_factors=use_roster_factors,
-            home_team_roster=team_roster.get_team_roster(home_team) if use_roster_factors else None,
-            away_team_roster=team_roster.get_team_roster(away_team) if use_roster_factors else None
+            roster_factors=False,  # Desactivado por simplicidad
+            home_team_roster=None,
+            away_team_roster=None,
+            use_high_scoring=use_high_scoring
         )
         
         if results:
@@ -152,12 +153,12 @@ def main():
             config.DIXON_COLES_RHO
         )
     
-    # 12. Footer
+    # 12. Footer (sin tecnologías)
     ui.render_footer()
     
-    # 13. Info del sistema
-    with st.expander("ℹ️ Información del sistema"):
-        ui.render_system_info(len(wc_teams))
+    # 13. Info del sistema (sin tecnologías)
+    with st.expander("ℹ️ Información del modelo"):
+        ui.render_system_info(len(wc_teams), raw)
 
 
 if __name__ == "__main__":
