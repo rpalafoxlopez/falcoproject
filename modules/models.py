@@ -11,60 +11,101 @@ from . import corrections
 def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals=8,
                          use_hydration=True, use_dixon_coles=True, neutral_venue=False,
                          use_high_scoring=True):
-    """Entrena el modelo Bayesiano - MODELO PRINCIPAL"""
+    """Entrena el modelo Bayesiano - MODELO PRINCIPAL (VERSIÓN CORREGIDA)"""
     if not config.PYMC_AVAILABLE:
         return None, None, None, None, None
     
     try:
         import pymc as pm
         import arviz as az
+        import pytensor.tensor as pt
         
-        home_idx = train.home_team.map(team_idx).values
-        away_idx = train.away_team.map(team_idx).values
-        home_goals = train.home_score.values
-        away_goals = train.away_score.values
+        # Filtrar datos para asegurar que solo se usen partidos con goles válidos
+        train_filtered = train.dropna(subset=['home_score', 'away_score'])
+        train_filtered = train_filtered[(train_filtered['home_score'] >= 0) & (train_filtered['away_score'] >= 0)]
+        
+        if len(train_filtered) < 10:
+            st.warning(f"⚠️ Bayesiano: Datos insuficientes ({len(train_filtered)} partidos)")
+            return None, None, None, None, None
+        
+        home_idx = train_filtered.home_team.map(team_idx).values
+        away_idx = train_filtered.away_team.map(team_idx).values
+        home_goals = train_filtered.home_score.values.astype(int)
+        away_goals = train_filtered.away_score.values.astype(int)
+        
+        # Verificar que los equipos estén en los datos
+        if home_team not in team_idx or away_team not in team_idx:
+            st.warning(f"⚠️ Bayesiano: {home_team if home_team not in team_idx else away_team} no está en los datos de entrenamiento")
+            return None, None, None, None, None
 
         coords = {"team": teams}
         with pm.Model(coords=coords) as bayes_model:
-            sigma_att = pm.HalfNormal("sigma_att", sigma=1.0)
-            sigma_def = pm.HalfNormal("sigma_def", sigma=1.0)
-
+            # Priors más robustos
+            sigma_att = pm.HalfNormal("sigma_att", sigma=0.5)
+            sigma_def = pm.HalfNormal("sigma_def", sigma=0.5)
+            
+            # Centrar los ataques y defensas para mejor identificación
             attack_raw = pm.Normal("attack_raw", mu=0.0, sigma=sigma_att, dims="team")
             defense_raw = pm.Normal("defense_raw", mu=0.0, sigma=sigma_def, dims="team")
-
-            attack = pm.Deterministic("attack", attack_raw - attack_raw.mean(), dims="team")
-            defense = pm.Deterministic("defense", defense_raw - defense_raw.mean(), dims="team")
+            
+            attack = pm.Deterministic("attack", attack_raw - pt.mean(attack_raw), dims="team")
+            defense = pm.Deterministic("defense", defense_raw - pt.mean(defense_raw), dims="team")
 
             if neutral_venue:
                 home_adv = pm.Deterministic("home_adv", 0.0)
             else:
-                home_adv = pm.Normal("home_adv", mu=0.3, sigma=0.5)
+                home_adv = pm.Normal("home_adv", mu=0.15, sigma=0.3)  # Prior más suave
 
-            intercept = pm.Normal("intercept", mu=0.0, sigma=1.0)
+            intercept = pm.Normal("intercept", mu=0.0, sigma=0.5)  # Prior más suave
 
             log_theta_home = intercept + home_adv + attack[home_idx] - defense[away_idx]
             log_theta_away = intercept + attack[away_idx] - defense[home_idx]
 
-            pm.Poisson("home_goals_obs", mu=pm.math.exp(log_theta_home), observed=home_goals)
-            pm.Poisson("away_goals_obs", mu=pm.math.exp(log_theta_away), observed=away_goals)
+            # Asegurar que los valores sean positivos
+            theta_home = pm.math.exp(log_theta_home)
+            theta_away = pm.math.exp(log_theta_away)
 
-            idata = pm.sample(draws=500, tune=500, chains=2, cores=1,
-                            random_seed=42, target_accept=0.85,
-                            progressbar=False, return_inferencedata=True)
+            pm.Poisson("home_goals_obs", mu=theta_home, observed=home_goals)
+            pm.Poisson("away_goals_obs", mu=theta_away, observed=away_goals)
 
+            # Muestreo con más iteraciones para mejor convergencia
+            idata = pm.sample(
+                draws=800, 
+                tune=800, 
+                chains=2, 
+                cores=1,
+                random_seed=42, 
+                target_accept=0.9,
+                progressbar=False, 
+                return_inferencedata=True,
+                idata_kwargs={"log_likelihood": True}
+            )
+
+        # Extraer resultados
         post = idata.posterior
+        
+        # Verificar que los valores sean válidos
+        if "intercept" not in post or "home_adv" not in post:
+            st.warning("⚠️ Bayesiano: No se pudieron extraer los parámetros del modelo")
+            return None, None, None, None, None
         
         intercept_vals = post["intercept"].values.flatten()
         home_adv_vals = post["home_adv"].values.flatten()
         attack_vals = post["attack"].values.reshape(-1, post["attack"].shape[-1])
         defense_vals = post["defense"].values.reshape(-1, post["defense"].shape[-1])
 
-        hi, ai = team_idx[home_team], team_idx[away_team]
-        log_th = intercept_vals + home_adv_vals + attack_vals[:, hi] - defense_vals[:, ai]
-        log_ta = intercept_vals + attack_vals[:, ai] - defense_vals[:, hi]
-        lam_h = np.exp(log_th).mean()
-        lam_a = np.exp(log_ta).mean()
+        hi = team_idx[home_team]
+        ai = team_idx[away_team]
+        
+        # Calcular lambdas con valores medios
+        lam_h = np.exp(np.mean(intercept_vals) + np.mean(home_adv_vals) + np.mean(attack_vals[:, hi]) - np.mean(defense_vals[:, ai]))
+        lam_a = np.exp(np.mean(intercept_vals) + np.mean(attack_vals[:, ai]) - np.mean(defense_vals[:, hi]))
+        
+        # Asegurar que los lambdas sean válidos
+        lam_h = max(lam_h, 0.1)
+        lam_a = max(lam_a, 0.1)
 
+        # Obtener stats para ajustes
         stats_h = data_loader.get_espn_team_stats(home_team)
         stats_a = data_loader.get_espn_team_stats(away_team)
         elo_h = stats_h.get('elo', 1750)
@@ -78,6 +119,7 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
                 lam_h, lam_a, home_team, away_team, stats_h, stats_a
             )
 
+        # Crear matriz de marcadores
         goals = np.arange(0, max_goals + 1)
         pmf_h = poisson.pmf(goals, lam_h)
         pmf_a = poisson.pmf(goals, lam_a)
@@ -93,13 +135,19 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
             if suma > 0:
                 score_matrix = score_matrix / suma
 
+        # Extraer ratings de manera segura
         att_ratings = {}
         def_ratings = {}
         for team in teams:
-            att_ratings[team] = float(post["attack"].sel(team=team).mean().item())
-            def_ratings[team] = float(post["defense"].sel(team=team).mean().item())
+            try:
+                att_ratings[team] = float(np.mean(attack_vals[:, team_idx[team]]))
+                def_ratings[team] = float(np.mean(defense_vals[:, team_idx[team]]))
+            except:
+                att_ratings[team] = 0.0
+                def_ratings[team] = 0.0
 
         return score_matrix, lam_h, lam_a, att_ratings, def_ratings
+        
     except Exception as e:
         st.warning(f"⚠️ Bayesiano: {str(e)}")
         return None, None, None, None, None
