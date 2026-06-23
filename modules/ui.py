@@ -315,11 +315,15 @@ def render_results(results, elo, dixon_coles_rho):
         prox = model_data['proximal']
         display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
         
+        # ✅ Verificar si es empate
+        es_empate = prox.get('es_empate', False)
+        empate_tag = " 📊 Empate más probable" if es_empate else ""
+        
         with prox_cols[col_idx % 3]:
             st.markdown(f"""
             <div style="
                 background: linear-gradient(135deg, #1a1f2e, #0f172a);
-                border: 2px solid rgba(0, 212, 255, 0.3);
+                border: 2px solid {'rgba(255, 193, 7, 0.3)' if es_empate else 'rgba(0, 212, 255, 0.3)'};
                 border-radius: 16px;
                 padding: 20px;
                 text-align: center;
@@ -328,11 +332,12 @@ def render_results(results, elo, dixon_coles_rho):
                 <h1 style="
                     font-family: 'Bebas Neue', sans-serif;
                     font-size: 3rem;
-                    color: #00d4ff;
+                    color: {'#ffc107' if es_empate else '#00d4ff'};
                     margin: 8px 0;
                 ">{prox['proximal'][0]} - {prox['proximal'][1]}</h1>
                 <p style="color: #64748b; font-size: 0.7rem; margin: 0;">
                     📊 Base: {prox['base'][0]}-{prox['base'][1]}
+                    {empate_tag}
                 </p>
             </div>
             """, unsafe_allow_html=True)
@@ -354,7 +359,9 @@ def render_results(results, elo, dixon_coles_rho):
                 continue
             prox = model_data['proximal']
             display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
-            if prox['underdog_first'] is not None:
+            if prox.get('es_empate', False):
+                st.write(f"**{display_name}:** Empate ya es lo más probable")
+            elif prox['underdog_first'] is not None and prox['underdog_first'] != prox['base']:
                 st.write(f"**{display_name}:** {prox['underdog_first'][0]}-{prox['underdog_first'][1]}")
             else:
                 st.write(f"**{display_name}:** Sin cambio")
@@ -369,7 +376,9 @@ def render_results(results, elo, dixon_coles_rho):
                 continue
             prox = model_data['proximal']
             display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
-            if prox['partido_roto'] is not None:
+            if prox.get('es_empate', False):
+                st.write(f"**{display_name}:** Empate ya es lo más probable")
+            elif prox['partido_roto'] is not None and prox['partido_roto'] != prox['base']:
                 st.write(f"**{display_name}:** {prox['partido_roto'][0]}-{prox['partido_roto'][1]}")
             else:
                 st.write(f"**{display_name}:** Sin cambio")
@@ -485,6 +494,7 @@ def render_results(results, elo, dixon_coles_rho):
         comp_df = pd.DataFrame(comp_data)
         st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
+        
 def render_results2(results, elo, dixon_coles_rho):
     """Renderiza los resultados de la predicción con resultados proximales"""
     if 'teams' not in results:
