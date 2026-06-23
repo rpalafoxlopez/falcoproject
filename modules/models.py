@@ -54,7 +54,6 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
 
         post = idata.posterior
         
-        # ✅ Asegurar que los valores sean numpy arrays antes de flatten
         intercept_vals = post["intercept"].values.flatten()
         home_adv_vals = post["home_adv"].values.flatten()
         attack_vals = post["attack"].values.reshape(-1, post["attack"].shape[-1])
@@ -66,7 +65,6 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
         lam_h = np.exp(log_th).mean()
         lam_a = np.exp(log_ta).mean()
 
-        # Obtener stats para ajustes
         stats_h = data_loader.get_espn_team_stats(home_team)
         stats_a = data_loader.get_espn_team_stats(away_team)
         elo_h = stats_h.get('elo', 1750)
@@ -95,7 +93,6 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
             if suma > 0:
                 score_matrix = score_matrix / suma
 
-        # ✅ Extraer ratings correctamente
         att_ratings = {}
         def_ratings = {}
         for team in teams:
@@ -106,7 +103,7 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
     except Exception as e:
         st.warning(f"⚠️ Bayesiano: {str(e)}")
         return None, None, None, None, None
-        
+
 def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
                         use_hydration=True, use_dixon_coles=True, neutral_venue=False,
                         use_high_scoring=True):
@@ -186,30 +183,31 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
 
             is_home_value = 0 if neutral_venue else 1
 
+            # ✅ CORREGIDO: Usar df[] en lugar de df. para acceder a las columnas
             home_rows = pd.DataFrame({
-                "team": df.home_team,
-                "goals": df.home_score,
+                "team": df["home_team"],
+                "goals": df["home_score"],
                 "is_home": is_home_value,
-                "elo_team": df.elo_home,
-                "elo_opponent": df.elo_away,
-                "gf10": df.gf10_h,
-                "ga10": df.ga10_h,
-                "form5": df.form5_h,
-                "tournament_weight": df.tournament_weight,
+                "elo_team": df["elo_home"],
+                "elo_opponent": df["elo_away"],
+                "gf10": df["gf10_h"],
+                "ga10": df["ga10_h"],
+                "form5": df["form5_h"],
+                "tournament_weight": df["tournament_weight"],
             })
             away_rows = pd.DataFrame({
-                "team": df.away_team,
-                "goals": df.away_score,
+                "team": df["away_team"],
+                "goals": df["away_score"],
                 "is_home": 0,
-                "elo_team": df.elo_away,
-                "elo_opponent": df.elo_home,
-                "gf10": df.gf10_a,
-                "ga10": df.ga10_a,
-                "form5": df.form5_a,
-                "tournament_weight": df.tournament_weight,
+                "elo_team": df["elo_away"],
+                "elo_opponent": df["elo_home"],
+                "gf10": df["gf10_a"],
+                "ga10": df["ga10_a"],
+                "form5": df["form5_a"],
+                "tournament_weight": df["tournament_weight"],
             })
             long = pd.concat([home_rows, away_rows], ignore_index=True)
-            long["elo_diff"] = long.elo_team - long.elo_opponent
+            long["elo_diff"] = long["elo_team"] - long["elo_opponent"]
             return long.dropna(subset=["gf10", "ga10", "form5"])
 
         long_df = to_long(hist)
