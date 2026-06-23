@@ -1,5 +1,7 @@
 # app.py - Predicción Mundial 2026 - Diseño Predictor Pro
 import streamlit as st
+import streamlit.components.v1 as components
+
 import pandas as pd
 from modules import (
     config,
@@ -856,9 +858,24 @@ def main():
     ui.render_footer()
     
     # 13. Info del sistema
-    with st.expander("ℹ️ Información del modelo"):
-        ui.render_system_info(len(wc_teams), raw)
+    # with st.expander("ℹ️ Información del modelo"):
+    #     ui.render_system_info(len(wc_teams), raw)
 
+    st.markdown("---")
+    st.subheader("📢 Anuncio")
+    components.html("""
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2476780591848511"
+        crossorigin="anonymous"></script>
+        <ins class="adsbygoogle"
+            style="display:block"
+            data-ad-client="ca-pub-2476780591848511"
+            data-ad-slot="XXXXXXXXXX"
+            data-ad-format="auto"
+            data-full-width-responsive="true"></ins>
+        <script>
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    """, height=200)
 
 if __name__ == "__main__":
     main()
