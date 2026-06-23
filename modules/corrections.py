@@ -1,4 +1,4 @@
-# modules/corrections.py - Todas las correcciones del modelo
+# modules/corrections.py - Correcciones del modelo (VERSIÓN MEJORADA)
 import numpy as np
 from scipy.stats import poisson
 
@@ -197,8 +197,34 @@ def ajustar_matriz_alta_anotacion(score_matrix, lam_h, lam_a, max_g=8):
     return score_matrix_ajustada
 
 # ============================================================================
-# AJUSTES CONTEXTUALES (Partidos "rotos")
+# AJUSTES CONTEXTUALES (Partidos "rotos") - MEJORADOS
 # ============================================================================
+
+def ajustar_por_diferencia_elo(lam_h, lam_a, elo_h, elo_a):
+    """
+    Si la diferencia de Elo es muy grande, el favorito tiene más ventaja
+    """
+    diff_elo = abs(elo_h - elo_a)
+    
+    # Si la diferencia es de +200 Elo (muy significativa)
+    if diff_elo > 200:
+        if elo_h > elo_a:
+            lam_h *= 1.10
+            lam_a *= 0.90
+        else:
+            lam_a *= 1.10
+            lam_h *= 0.90
+    
+    # Si la diferencia es de +400 Elo (abismal)
+    if diff_elo > 400:
+        if elo_h > elo_a:
+            lam_h *= 1.20
+            lam_a *= 0.80
+        else:
+            lam_a *= 1.20
+            lam_h *= 0.80
+    
+    return lam_h, lam_a
 
 def ajustar_por_gol_temprano_favorito(lam_h, lam_a, es_favorito_local, minuto_gol, marcador_actual):
     """
@@ -206,20 +232,20 @@ def ajustar_por_gol_temprano_favorito(lam_h, lam_a, es_favorito_local, minuto_go
     """
     if minuto_gol <= 15:
         if es_favorito_local:
-            lam_h *= 1.20
-            lam_a *= 0.85
+            lam_h *= 1.30  # Aumentado de 1.20
+            lam_a *= 0.75  # Aumentado de 0.85
         else:
-            lam_a *= 1.20
-            lam_h *= 0.85
+            lam_a *= 1.30
+            lam_h *= 0.75
     
     if marcador_actual is not None:
         diff = marcador_actual.get('home', 0) - marcador_actual.get('away', 0)
         if diff >= 2:
-            lam_h *= 1.10
-            lam_a *= 0.90
+            lam_h *= 1.15  # Aumentado de 1.10
+            lam_a *= 0.85  # Aumentado de 0.90
         elif diff <= -2:
-            lam_a *= 1.10
-            lam_h *= 0.90
+            lam_a *= 1.15
+            lam_h *= 0.85
     
     return lam_h, lam_a
 
@@ -228,13 +254,24 @@ def ajustar_por_partido_roto(lam_h, lam_a, goles_h, goles_a, minuto):
     Si hay 3+ goles de diferencia en el primer tiempo, el partido se rompe
     """
     diff = abs(goles_h - goles_a)
-    if diff >= 3 and minuto <= 45:
+    
+    # 🔥 NUEVO: Si la diferencia es de 4+ goles
+    if diff >= 4 and minuto <= 45:
         if goles_h > goles_a:
-            lam_h *= 1.15
-            lam_a *= 0.80
+            lam_h *= 1.35
+            lam_a *= 0.60
         else:
-            lam_a *= 1.15
-            lam_h *= 0.80
+            lam_a *= 1.35
+            lam_h *= 0.60
+    
+    # Si la diferencia es de 3+ goles
+    elif diff >= 3 and minuto <= 45:
+        if goles_h > goles_a:
+            lam_h *= 1.25  # Aumentado de 1.15
+            lam_a *= 0.70  # Aumentado de 0.80
+        else:
+            lam_a *= 1.25
+            lam_h *= 0.70
     
     return lam_h, lam_a
 
@@ -262,10 +299,15 @@ def ajustar_por_motivacion(lam_h, lam_a, goles_h, goles_a):
 def ajuste_completo_contextual(lam_h, lam_a, home_team, away_team,
                                 es_favorito_local, minuto_primer_gol=None,
                                 marcador_actual=None, use_early_goal=True,
-                                use_partido_roto=True, use_motivacion=True):
+                                use_partido_roto=True, use_motivacion=True,
+                                elo_h=None, elo_a=None):
     """
     Combina todos los ajustes contextuales para partidos "rotos"
     """
+    # 🔥 NUEVO: Ajuste por diferencia de Elo
+    if elo_h is not None and elo_a is not None:
+        lam_h, lam_a = ajustar_por_diferencia_elo(lam_h, lam_a, elo_h, elo_a)
+    
     if use_early_goal and minuto_primer_gol is not None and minuto_primer_gol <= 15:
         lam_h, lam_a = ajustar_por_gol_temprano_favorito(
             lam_h, lam_a, es_favorito_local, minuto_primer_gol, marcador_actual
