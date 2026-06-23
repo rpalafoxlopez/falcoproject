@@ -1,4 +1,4 @@
-# modules/ui.py - Componentes de interfaz de usuario (COMPLETO)
+# modules/ui.py - Componentes de interfaz de usuario
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -21,6 +21,7 @@ def render_header():
             <span class="badge gold">Mundial 2026</span>
             <span class="badge">4 Tiempos</span>
             <span class="badge">Alta Anotación</span>
+            <span class="badge">Contextual</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -47,7 +48,7 @@ def render_status_bar():
         st.markdown(f"""
         <div class="status-item">
             <div class="label">Ajustes Activos</div>
-            <div class="value cyan">4 Tiempos + DC + Alta Anotación</div>
+            <div class="value cyan">4 Tiempos + DC + Contextual</div>
         </div>
         """, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -107,7 +108,7 @@ def render_match_selector(wc_teams):
     return home_team, away_team, match_date, train_start
 
 def render_model_selectors():
-    """Renderiza los selectores de modelos (Bayesiano como principal)"""
+    """Renderiza los selectores de modelos"""
     use_bayesian = st.checkbox("🔵 Bayesiano (recomendado)", value=True)
     use_xgboost = st.checkbox("🟢 XGBoost (comparativo)", value=False)
     return use_xgboost, use_bayesian
@@ -143,8 +144,7 @@ def render_momentum_adjustments():
     marcador_actual_a = 0
     
     if use_momentum:
-        minuto_gol_favorito = st.slider("⏱️ Minuto del gol del favorito", 1, 90, 85, 
-                                       help="Si el favorito anota en el minuto 80+, aumenta sus chances")
+        minuto_gol_favorito = st.slider("⏱️ Minuto del gol del favorito", 1, 90, 85)
         llegadas_previas_h = st.number_input("Llegadas del local en el cuarto anterior", 0, 20, 5)
         llegadas_previas_a = st.number_input("Llegadas del visitante en el cuarto anterior", 0, 20, 3)
         st.markdown("**Marcador actual:**")
@@ -160,6 +160,38 @@ def render_high_scoring_adjustment():
     """Renderiza el ajuste de alta anotación"""
     return st.checkbox("⚽ Ajuste por alta anotación", value=True, 
                        help="Aumenta probabilidad de partidos con +3 goles (ej: Noruega 3-2)")
+
+# ============================================================================
+# NUEVO: AJUSTES CONTEXTUALES
+# ============================================================================
+
+def render_contextual_adjustments():
+    """Renderiza los ajustes contextuales avanzados (partidos rotos)"""
+    st.markdown("---")
+    st.subheader("⚡ Ajustes Contextuales")
+    
+    use_contextual = st.checkbox("✅ Activar ajustes contextuales", value=True,
+                                 help="Ajusta predicciones para partidos que se 'rompen'")
+    
+    minuto_primer_gol = 10
+    marcador_actual_h_ctx = 0
+    marcador_actual_a_ctx = 0
+    
+    if use_contextual:
+        st.caption("⚽ Si el favorito anota temprano (min 1-15), el partido se rompe")
+        minuto_primer_gol = st.slider("⏱️ Minuto del primer gol del favorito", 1, 90, 10,
+                                      help="Minuto en que el favorito anotó el primer gol")
+        
+        st.markdown("**Marcador actual:**")
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            marcador_actual_h_ctx = st.number_input("Goles local", 0, 10, 0, key="ctx_h")
+        with col_m2:
+            marcador_actual_a_ctx = st.number_input("Goles visitante", 0, 10, 0, key="ctx_a")
+        
+        st.caption("💡 Si hay 3+ goles de diferencia en el 1T, el partido se considera 'roto'")
+    
+    return use_contextual, minuto_primer_gol, marcador_actual_h_ctx, marcador_actual_a_ctx
 
 def plot_results(sm, home_team, away_team, title, max_display=7):
     """Genera los gráficos de resultados"""
@@ -177,7 +209,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     colors = ['#0a0e1a', '#1a3a6b', '#2d5a9a', '#00d4ff', '#ffffff']
     custom_cmap = LinearSegmentedColormap.from_list('custom', colors)
 
-    # Heatmap
     ax0 = axes[0]
     ax0.set_facecolor('#111827')
     im = ax0.imshow(sm_disp, cmap=custom_cmap, vmin=0, origin="upper")
@@ -200,7 +231,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     cbar = plt.colorbar(im, ax=ax0, fraction=0.046, pad=0.04)
     cbar.ax.tick_params(colors='#94a3b8')
 
-    # 1X2 bars
     ax1 = axes[1]
     ax1.set_facecolor('#111827')
     home_win = np.sum(np.tril(sm_disp, k=-1))
@@ -225,7 +255,6 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
         spine.set_color((1, 1, 1, 0.1))
     ax1.spines[["top", "right"]].set_visible(False)
 
-    # Top 10 scores
     ax2 = axes[2]
     ax2.set_facecolor('#111827')
     flat = np.argsort(sm.ravel())[::-1][:10]
@@ -258,7 +287,7 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
 def render_results(results, elo, dixon_coles_rho):
     """Renderiza los resultados de la predicción"""
     if 'teams' not in results:
-        st.error("❌ No hay resultados para mostrar. Los modelos no pudieron generar predicciones.")
+        st.error("❌ No hay resultados para mostrar.")
         return
     
     home_team, away_team = results['teams']
@@ -328,29 +357,6 @@ def render_results(results, elo, dixon_coles_rho):
             top_idx = np.unravel_index(model_data['score_matrix'][:7,:7].argmax(), (7,7))
             st.info(f"🎯 Marcador más probable: **{top_idx[0]}-{top_idx[1]}**")
 
-            # Mostrar correcciones aplicadas
-            correcciones = []
-            if 'use_dixon_coles' in st.session_state:
-                if st.session_state.use_dixon_coles:
-                    correcciones.append("🔧 DC")
-            if 'use_hydration' in st.session_state:
-                if st.session_state.use_hydration:
-                    correcciones.append("💧 4 tiempos")
-            if 'use_high_scoring' in st.session_state:
-                if st.session_state.use_high_scoring:
-                    correcciones.append("⚽ Alta anotación")
-            if 'use_dynamic' in st.session_state:
-                if st.session_state.use_dynamic:
-                    correcciones.append("⚡ Gol temprano")
-            if 'use_momentum' in st.session_state:
-                if st.session_state.use_momentum:
-                    correcciones.append("⚡ Momentum")
-            if 'neutral_venue' in st.session_state:
-                if st.session_state.neutral_venue:
-                    correcciones.append("🏟️ Neutral")
-            if correcciones:
-                st.caption(f"📌 Ajustes: {' · '.join(correcciones)}")
-
             if model_name == 'xgb' and 'team_stats' in model_data:
                 with st.expander("📈 Estadísticas de los equipos (ESPN)"):
                     stats_data = []
@@ -397,20 +403,22 @@ def render_results(results, elo, dixon_coles_rho):
         st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
 def render_footer():
-    """Renderiza el footer (sin tecnologías)"""
+    """Renderiza el footer"""
     st.markdown("---")
     st.markdown("""
     <div class="footer">
         <p>
-            ⚽ Mundial FIFA 2026
+            ⚽ Modelo Bayesiano Jerárquico — Mundial FIFA 2026
             <span class="separator">·</span>
-            🔧 (ρ=-0.13)
+            🔧 Dixon-Coles (ρ=-0.13)
             <span class="separator">·</span>
-            💧
+            💧 Ajuste por 4 tiempos
             <span class="separator">·</span>
-            ⚽ 
+            ⚽ Alta anotación
+            <span class="separator">·</span>
+            ⚡ Contextual
         </p>
-        <p style="margin-top: 8px; color: #64748b; font-size: 1.2rem; font-weight:bold;">
+        <p style="margin-top: 8px; color: #64748b; font-size: 0.7rem;">
             <a href="https://satohachi.rpalafox.com/" target="_blank" style="color: #00d4ff;">🐝 rpalafox.com</a>
             <span class="separator">·</span>
             <span style="color: #64748b;">Uso exclusivamente educativo y de entretenimiento</span>
@@ -419,41 +427,13 @@ def render_footer():
     """, unsafe_allow_html=True)
 
 def render_system_info(num_teams, raw):
-    """Renderiza la información del sistema (sin tecnologías)"""
+    """Renderiza la información del sistema"""
     col1, col2 = st.columns(2)
     with col1:
         st.write(f"**Modelo principal:** Bayesiano Jerárquico")
         st.write(f"**Dixon-Coles ρ:** `{config.DIXON_COLES_RHO:.3f}`")
         st.write(f"**Equipos clasificados:** `{num_teams}`")
     with col2:
-        st.write(f"**Ajustes activos:** Pausas de hidratación, alta anotación")
+        st.write(f"**Ajustes activos:** Pausas hidratación, alta anotación, contextual")
         st.write(f"**Ventana de datos:** 2018-2026")
         st.write(f"**Partidos históricos:** `{len(raw):,}`")
-
-def render_contextual_adjustments():
-    """Renderiza los ajustes contextuales avanzados"""
-    st.markdown("---")
-    st.subheader("⚡ Ajustes Contextuales (Partidos Rotos)")
-    
-    use_contextual = st.checkbox("✅ Activar ajustes contextuales", value=True,
-                                 help="Ajusta predicciones para partidos que se 'rompen' (ej: Portugal 3-0 en 1T)")
-    
-    minuto_primer_gol = 10
-    marcador_actual_h = 0
-    marcador_actual_a = 0
-    
-    if use_contextual:
-        st.caption("⚽ Si el favorito anota temprano (min 1-15), el partido tiende a romperse")
-        minuto_primer_gol = st.slider("⏱️ Minuto del primer gol del favorito", 1, 90, 10,
-                                      help="Minuto en que el favorito anotó el primer gol")
-        
-        st.markdown("**Marcador actual:**")
-        col_m1, col_m2 = st.columns(2)
-        with col_m1:
-            marcador_actual_h = st.number_input("Goles local", 0, 10, 0, key="ctx_marc_h")
-        with col_m2:
-            marcador_actual_a = st.number_input("Goles visitante", 0, 10, 0, key="ctx_marc_a")
-        
-        st.caption("💡 Si hay 3+ goles de diferencia en el 1T, el partido se considera 'roto'")
-    
-    return use_contextual, minuto_primer_gol, marcador_actual_h, marcador_actual_a

@@ -1,4 +1,4 @@
-# modules/corrections.py - Correcciones del modelo
+# modules/corrections.py - Todas las correcciones del modelo
 import numpy as np
 from scipy.stats import poisson
 
@@ -147,7 +147,6 @@ def ajuste_completo_alta_anotacion(lam_h, lam_a, home_team, away_team,
     """
     Combina todos los ajustes para partidos de alta anotación
     """
-    # 1. Factor de alta anotación histórica
     if stats_h is not None and stats_a is not None:
         avg_goles_h = stats_h.get('avg_goles', 1.5)
         avg_goles_a = stats_a.get('avg_goles', 1.5)
@@ -160,7 +159,6 @@ def ajuste_completo_alta_anotacion(lam_h, lam_a, home_team, away_team,
         elif avg_goles_a > 2.0:
             lam_a *= 1.08
     
-    # 2. Factor de partidos con ambos anotan
     both_score_h = stats_h.get('both_score_pct', 0.5) if stats_h else 0.5
     both_score_a = stats_a.get('both_score_pct', 0.5) if stats_a else 0.5
     
@@ -168,7 +166,6 @@ def ajuste_completo_alta_anotacion(lam_h, lam_a, home_team, away_team,
         lam_h *= 1.06
         lam_a *= 1.06
     
-    # 3. Factor de goleadores en racha (basado en Elo ofensivo)
     attack_h = stats_h.get('attack', 1.5) if stats_h else 1.5
     attack_a = stats_a.get('attack', 1.5) if stats_a else 1.5
     
