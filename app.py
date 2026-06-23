@@ -747,12 +747,12 @@ def main():
         
         st.markdown("---")
         st.subheader("🏟️ Configuración del Partido")
-        neutral_venue = st.checkbox("🏟️ Partido en sede neutral", value=False)
+        neutral_venue = st.checkbox("🏟️ Partido en sede neutral", value=True)
         
         st.markdown("---")
         st.subheader("🤖 Modelos a usar")
         use_bayesian = st.checkbox("🔵 Bayesiano (recomendado)", value=True)
-        use_xgboost = st.checkbox("🟢 XGBoost (comparativo)", value=False)
+        use_xgboost = st.checkbox("🟢 XGBoost (comparativo)", value=True)
         
         st.markdown("---")
         st.subheader("🔧 Correcciones")
