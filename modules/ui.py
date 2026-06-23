@@ -429,3 +429,31 @@ def render_system_info(num_teams, raw):
         st.write(f"**Ajustes activos:** Pausas de hidratación, alta anotación")
         st.write(f"**Ventana de datos:** 2018-2026")
         st.write(f"**Partidos históricos:** `{len(raw):,}`")
+
+def render_contextual_adjustments():
+    """Renderiza los ajustes contextuales avanzados"""
+    st.markdown("---")
+    st.subheader("⚡ Ajustes Contextuales (Partidos Rotos)")
+    
+    use_contextual = st.checkbox("✅ Activar ajustes contextuales", value=True,
+                                 help="Ajusta predicciones para partidos que se 'rompen' (ej: Portugal 3-0 en 1T)")
+    
+    minuto_primer_gol = 10
+    marcador_actual_h = 0
+    marcador_actual_a = 0
+    
+    if use_contextual:
+        st.caption("⚽ Si el favorito anota temprano (min 1-15), el partido tiende a romperse")
+        minuto_primer_gol = st.slider("⏱️ Minuto del primer gol del favorito", 1, 90, 10,
+                                      help="Minuto en que el favorito anotó el primer gol")
+        
+        st.markdown("**Marcador actual:**")
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            marcador_actual_h = st.number_input("Goles local", 0, 10, 0, key="ctx_marc_h")
+        with col_m2:
+            marcador_actual_a = st.number_input("Goles visitante", 0, 10, 0, key="ctx_marc_a")
+        
+        st.caption("💡 Si hay 3+ goles de diferencia en el 1T, el partido se considera 'roto'")
+    
+    return use_contextual, minuto_primer_gol, marcador_actual_h, marcador_actual_a

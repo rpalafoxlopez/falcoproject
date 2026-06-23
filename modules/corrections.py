@@ -134,63 +134,102 @@ def ajustar_por_momentum(lam_h, lam_a, home_team, away_team,
 
     return lam_h, lam_a
 
-# ============================================================================
-# NUEVOS AJUSTES PARA ALTA ANOTACIÓN
+    # ============================================================================
+# NUEVOS AJUSTES CONTEXTUALES (Partidos "rotos")
 # ============================================================================
 
-def ajuste_completo_alta_anotacion(lam_h, lam_a, home_team, away_team,
-                                    stats_h=None, stats_a=None):
+def ajustar_por_gol_temprano_favorito(lam_h, lam_a, es_favorito_local, minuto_gol, marcador_actual):
     """
-    Combina todos los ajustes para partidos de alta anotación
+    Si el favorito anota en los primeros 15 minutos, el partido tiende a romperse
     """
-    # 1. Factor de alta anotación histórica
-    if stats_h is not None and stats_a is not None:
-        avg_goles_h = stats_h.get('avg_goles', 1.5)
-        avg_goles_a = stats_a.get('avg_goles', 1.5)
-        
-        if avg_goles_h > 2.0 and avg_goles_a > 1.8:
-            lam_h *= 1.12
-            lam_a *= 1.12
-        elif avg_goles_h > 2.0:
-            lam_h *= 1.08
-        elif avg_goles_a > 2.0:
-            lam_a *= 1.08
+    if minuto_gol <= 15:
+        if es_favorito_local:
+            # El favorito local anotó temprano → aumenta su λ, reduce el del rival
+            lam_h *= 1.20
+            lam_a *= 0.85
+        else:
+            # El favorito visitante anotó temprano
+            lam_a *= 1.20
+            lam_h *= 0.85
     
-    # 2. Factor de partidos con ambos anotan
-    both_score_h = stats_h.get('both_score_pct', 0.5) if stats_h else 0.5
-    both_score_a = stats_a.get('both_score_pct', 0.5) if stats_a else 0.5
-    
-    if both_score_h > 0.65 and both_score_a > 0.65:
-        lam_h *= 1.06
-        lam_a *= 1.06
-    
-    # 3. Factor de goleadores en racha (basado en Elo ofensivo)
-    attack_h = stats_h.get('attack', 1.5) if stats_h else 1.5
-    attack_a = stats_a.get('attack', 1.5) if stats_a else 1.5
-    
-    if attack_h > 2.0 and attack_a > 1.8:
-        lam_h *= 1.05
-        lam_a *= 1.05
+    # Si ya va ganando por 2+ goles en el primer tiempo
+    if marcador_actual is not None:
+        diff = marcador_actual.get('home', 0) - marcador_actual.get('away', 0)
+        if diff >= 2:
+            lam_h *= 1.10
+            lam_a *= 0.90
+        elif diff <= -2:
+            lam_a *= 1.10
+            lam_h *= 0.90
     
     return lam_h, lam_a
 
-def ajustar_matriz_alta_anotacion(score_matrix, lam_h, lam_a, max_g=8):
+def ajustar_por_partido_roto(lam_h, lam_a, goles_h, goles_a, minuto):
     """
-    Ajusta la matriz para dar más peso a marcadores de alta anotación
+    Si hay 3+ goles de diferencia en el primer tiempo, el partido se rompe
     """
-    ajuste = np.ones_like(score_matrix)
+    diff = abs(goles_h - goles_a)
+    if diff >= 3 and minuto <= 45:
+        if goles_h > goles_a:
+            lam_h *= 1.15
+            lam_a *= 0.80
+        else:
+            lam_a *= 1.15
+            lam_h *= 0.80
     
-    for i in range(max_g + 1):
-        for j in range(max_g + 1):
-            total_goles = i + j
-            if total_goles >= 4:
-                ajuste[i, j] = 1.15
-            elif total_goles >= 3:
-                ajuste[i, j] = 1.08
+    return lam_h, lam_a
+
+def ajustar_por_motivacion(lam_h, lam_a, goles_h, goles_a):
+    """
+    Si un equipo va ganando cómodo, se relaja; si va perdiendo, se desespera
+    """
+    diff = goles_h - goles_a
     
-    score_matrix_ajustada = score_matrix * ajuste
-    suma = score_matrix_ajustada.sum()
-    if suma > 0:
-        score_matrix_ajustada = score_matrix_ajustada / suma
+    if diff >= 2:
+        # Local ganando cómodo: más goles (confianza) pero también más relajación defensiva
+        lam_h *= 1.08
+        lam_a *= 1.05
+    elif diff <= -2:
+        lam_a *= 1.08
+        lam_h *= 1.05
+    elif diff >= 1:
+        # Ventaja de 1 gol: el que va ganando se cierra un poco
+        lam_h *= 1.03
+        lam_a *= 0.97
+    elif diff <= -1:
+        lam_a *= 1.03
+        lam_h *= 0.97
     
-    return score_matrix_ajustada
+    return lam_h, lam_a
+
+def ajuste_completo_contextual(lam_h, lam_a, home_team, away_team,
+                                es_favorito_local, minuto_primer_gol=None,
+                                marcador_actual=None, use_early_goal=True,
+                                use_partido_roto=True, use_motivacion=True):
+    """
+    Combina todos los ajustes contextuales para partidos "rotos"
+    """
+    # 1. Ajuste por gol temprano del favorito
+    if use_early_goal and minuto_primer_gol is not None and minuto_primer_gol <= 15:
+        lam_h, lam_a = ajustar_por_gol_temprano_favorito(
+            lam_h, lam_a, es_favorito_local, minuto_primer_gol, marcador_actual
+        )
+    
+    # 2. Ajuste por partido roto (3+ goles de diferencia en 1T)
+    if use_partido_roto and marcador_actual is not None:
+        lam_h, lam_a = ajustar_por_partido_roto(
+            lam_h, lam_a, 
+            marcador_actual.get('home', 0), 
+            marcador_actual.get('away', 0),
+            minuto_primer_gol if minuto_primer_gol is not None else 45
+        )
+    
+    # 3. Ajuste por motivación/desesperación
+    if use_motivacion and marcador_actual is not None:
+        lam_h, lam_a = ajustar_por_motivacion(
+            lam_h, lam_a,
+            marcador_actual.get('home', 0),
+            marcador_actual.get('away', 0)
+        )
+    
+    return lam_h, lam_a

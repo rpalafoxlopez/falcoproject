@@ -781,6 +781,10 @@ def main():
         use_dynamic, underdog_scored_first, minuto_gol = ui.render_dynamic_adjustments()
         use_momentum, minuto_gol_favorito, llegadas_previas_h, llegadas_previas_a, marcador_actual_h, marcador_actual_a = ui.render_momentum_adjustments()
         
+        # Después de la sección de "Ajustes Dinámicos"
+        st.markdown("---")
+        use_contextual, minuto_primer_gol, marcador_actual_h_ctx, marcador_actual_a_ctx = ui.render_contextual_adjustments()
+
         st.markdown("---")
         
         use_high_scoring = st.checkbox("⚽ Ajuste por alta anotación", value=True, 
