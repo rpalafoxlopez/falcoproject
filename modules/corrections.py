@@ -330,3 +330,108 @@ def ajuste_completo_contextual(lam_h, lam_a, home_team, away_team,
     
     return lam_h, lam_a
 
+# ============================================================================
+# SISTEMA DE RESULTADO PROXIMAL
+# ============================================================================
+
+def calcular_resultado_proximal(score_matrix, lam_h, lam_a, 
+                                marcador_actual_h, marcador_actual_a,
+                                es_favorito_local, underdog_scored_first=False,
+                                minuto_gol=0, partido_roto=False):
+    """
+    Calcula el resultado más probable considerando el contexto del partido.
+    
+    Args:
+        score_matrix: Matriz de probabilidades original
+        lam_h, lam_a: Goles esperados
+        marcador_actual_h, marcador_actual_a: Marcador actual
+        es_favorito_local: True si el favorito es local
+        underdog_scored_first: True si el underdog anotó primero
+        minuto_gol: Minuto del gol del underdog
+        partido_roto: True si hay 3+ goles de diferencia en 1T
+    
+    Returns:
+        dict: Resultados proximales para cada escenario
+    """
+    resultados = {
+        'base': None,
+        'underdog_first': None,
+        'partido_roto': None,
+        'proximal': None
+    }
+    
+    # 1. Resultado base (el más probable)
+    flat_idx = np.argmax(score_matrix)
+    base_h, base_a = np.unravel_index(flat_idx, score_matrix.shape)
+    resultados['base'] = (base_h, base_a)
+    
+    # 2. Si el underdog anotó primero, ajustar
+    if underdog_scored_first:
+        # Determinar quién es el underdog
+        if es_favorito_local:
+            underdog_h = False  # El visitante es el underdog
+        else:
+            underdog_h = True   # El local es el underdog
+        
+        # Buscar el marcador más probable que incluya el gol del underdog
+        if underdog_h:
+            # El underdog es local, buscar marcadores donde local >= 1
+            prob_underdog = score_matrix[1:, :]  # Local tiene al menos 1 gol
+        else:
+            # El underdog es visitante, buscar marcadores donde visitante >= 1
+            prob_underdog = score_matrix[:, 1:]  # Visitante tiene al menos 1 gol
+        
+        if prob_underdog.size > 0:
+            flat_idx_ud = np.argmax(prob_underdog)
+            # Ajustar índices según la dimensión recortada
+            if underdog_h:
+                ud_h, ud_a = np.unravel_index(flat_idx_ud, prob_underdog.shape)
+                resultados['underdog_first'] = (ud_h + 1, ud_a)
+            else:
+                ud_h, ud_a = np.unravel_index(flat_idx_ud, prob_underdog.shape)
+                resultados['underdog_first'] = (ud_h, ud_a + 1)
+        else:
+            resultados['underdog_first'] = resultados['base']
+    
+    # 3. Si el partido está roto (3+ goles de diferencia en 1T)
+    if partido_roto:
+        diff = abs(marcador_actual_h - marcador_actual_a)
+        
+        # Buscar marcadores con al menos la diferencia actual + 1 gol para el que va ganando
+        if marcador_actual_h > marcador_actual_a:
+            # Local va ganando, buscar marcadores donde local >= marcador_actual_h + 1
+            min_h = marcador_actual_h + 1
+            if min_h < score_matrix.shape[0]:
+                prob_roto = score_matrix[min_h:, :]
+                if prob_roto.size > 0:
+                    flat_idx_roto = np.argmax(prob_roto)
+                    r_h, r_a = np.unravel_index(flat_idx_roto, prob_roto.shape)
+                    resultados['partido_roto'] = (r_h + min_h, r_a)
+                else:
+                    resultados['partido_roto'] = resultados['base']
+            else:
+                resultados['partido_roto'] = resultados['base']
+        else:
+            # Visitante va ganando
+            min_a = marcador_actual_a + 1
+            if min_a < score_matrix.shape[1]:
+                prob_roto = score_matrix[:, min_a:]
+                if prob_roto.size > 0:
+                    flat_idx_roto = np.argmax(prob_roto)
+                    r_h, r_a = np.unravel_index(flat_idx_roto, prob_roto.shape)
+                    resultados['partido_roto'] = (r_h, r_a + min_a)
+                else:
+                    resultados['partido_roto'] = resultados['base']
+            else:
+                resultados['partido_roto'] = resultados['base']
+    
+    # 4. Resultado proximal (el mejor de todos los ajustados)
+    # Prioridad: partido_roto > underdog_first > base
+    if partido_roto and resultados['partido_roto'] is not None:
+        resultados['proximal'] = resultados['partido_roto']
+    elif underdog_scored_first and resultados['underdog_first'] is not None:
+        resultados['proximal'] = resultados['underdog_first']
+    else:
+        resultados['proximal'] = resultados['base']
+    
+    return resultados

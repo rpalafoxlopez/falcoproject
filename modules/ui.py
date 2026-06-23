@@ -285,6 +285,302 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     return fig
 
 def render_results(results, elo, dixon_coles_rho):
+    """Renderiza los resultados de la predicción con resultados proximales"""
+    if 'teams' not in results:
+        st.error("❌ No hay resultados para mostrar.")
+        return
+    
+    home_team, away_team = results['teams']
+    elo_h = elo.get('home', 0)
+    elo_a = elo.get('away', 0)
+
+    st.markdown("---")
+    
+    # ============================================================
+    # RESULTADOS PROXIMALES (DESTACADOS)
+    # ============================================================
+    st.subheader("🎯 RESULTADO PROXIMAL")
+    st.caption("Predicción ajustada según el contexto del partido")
+
+    # Mostrar resultados proximales en una fila
+    prox_cols = st.columns(3)
+    
+    col_idx = 0
+    for model_name, model_data in results.items():
+        if model_name in ['teams', 'elo']:
+            continue
+        if 'proximal' not in model_data:
+            continue
+        
+        prox = model_data['proximal']
+        display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
+        
+        with prox_cols[col_idx % 3]:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #1a1f2e, #0f172a);
+                border: 2px solid rgba(0, 212, 255, 0.3);
+                border-radius: 16px;
+                padding: 20px;
+                text-align: center;
+            ">
+                <p style="color: #94a3b8; font-size: 0.75rem; margin: 0;">{display_name}</p>
+                <h1 style="
+                    font-family: 'Bebas Neue', sans-serif;
+                    font-size: 3rem;
+                    color: #00d4ff;
+                    margin: 8px 0;
+                ">{prox['proximal'][0]} - {prox['proximal'][1]}</h1>
+                <p style="color: #64748b; font-size: 0.7rem; margin: 0;">
+                    📊 Base: {prox['base'][0]}-{prox['base'][1]}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        col_idx += 1
+    
+    # Mostrar resultados específicos por contexto
+    st.markdown("---")
+    st.subheader("📊 Resultados por Contexto")
+    
+    context_cols = st.columns(2)
+    
+    # Columna 1: Gol del underdog
+    with context_cols[0]:
+        st.markdown("#### ⚡ Por Gol del Underdog")
+        for model_name, model_data in results.items():
+            if model_name in ['teams', 'elo']:
+                continue
+            if 'proximal' not in model_data:
+                continue
+            prox = model_data['proximal']
+            display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
+            if prox['underdog_first'] is not None:
+                st.write(f"**{display_name}:** {prox['underdog_first'][0]}-{prox['underdog_first'][1]}")
+            else:
+                st.write(f"**{display_name}:** Sin cambio")
+    
+    # Columna 2: Partido roto
+    with context_cols[1]:
+        st.markdown("#### 💥 Por Partido Roto")
+        for model_name, model_data in results.items():
+            if model_name in ['teams', 'elo']:
+                continue
+            if 'proximal' not in model_data:
+                continue
+            prox = model_data['proximal']
+            display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
+            if prox['partido_roto'] is not None:
+                st.write(f"**{display_name}:** {prox['partido_roto'][0]}-{prox['partido_roto'][1]}")
+            else:
+                st.write(f"**{display_name}:** Sin cambio")
+    
+    # ============================================================
+    # RESTO DE RESULTADOS
+    # ============================================================
+    st.markdown("---")
+    st.subheader("📊 Resumen de Predicción")
+
+    valid_models = []
+    for key, value in results.items():
+        if key not in ['teams', 'elo'] and value is not None:
+            if isinstance(value, dict) and 'score_matrix' in value:
+                valid_models.append(key)
+    
+    if not valid_models:
+        st.warning("⚠️ No hay modelos con predicciones válidas.")
+        return
+
+    cols = st.columns(min(len(valid_models), 4))
+    
+    col_idx = 0
+    for model_name in valid_models:
+        model_data = results[model_name]
+        with cols[col_idx % len(cols)]:
+            display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
+            st.metric(
+                f"🏠 {home_team[:10]} ({display_name})",
+                f"{model_data['lam_h']:.2f}",
+                delta=f"vs {away_team[:10]} {model_data['lam_a']:.2f}",
+                delta_color="off"
+            )
+        col_idx += 1
+
+    st.markdown("---")
+
+    model_cols = st.columns(len(valid_models))
+    col_idx = 0
+
+    for model_name in valid_models:
+        model_data = results[model_name]
+
+        with model_cols[col_idx % len(model_cols)]:
+            display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
+            st.subheader(display_name)
+
+            fig = plot_results(model_data['score_matrix'], home_team, away_team, display_name, max_display=7)
+            st.pyplot(fig)
+            plt.close(fig)
+
+            sm = model_data['score_matrix'][:7, :7]
+            home_win = np.sum(np.tril(sm, k=-1))
+            draw = np.sum(np.diag(sm))
+            away_win = np.sum(np.triu(sm, k=1))
+
+            prob_cols = st.columns(3)
+            with prob_cols[0]:
+                st.metric(f"🏠 {home_team[:8]}", f"{home_win:.1%}")
+                st.markdown(f'<div class="prob-bar"><div class="prob-bar-fill" style="width:{home_win*100}%; background: linear-gradient(90deg, #16a34a, #22c55e);"></div></div>', unsafe_allow_html=True)
+            with prob_cols[1]:
+                st.metric("🤝 Empate", f"{draw:.1%}")
+                st.markdown(f'<div class="prob-bar"><div class="prob-bar-fill" style="width:{draw*100}%; background: linear-gradient(90deg, #64748b, #94a3b8);"></div></div>', unsafe_allow_html=True)
+            with prob_cols[2]:
+                st.metric(f"✈️ {away_team[:8]}", f"{away_win:.1%}")
+                st.markdown(f'<div class="prob-bar"><div class="prob-bar-fill" style="width:{away_win*100}%; background: linear-gradient(90deg, #dc2626, #ef4444);"></div></div>', unsafe_allow_html=True)
+
+            top_idx = np.unravel_index(model_data['score_matrix'][:7,:7].argmax(), (7,7))
+            st.info(f"🎯 Marcador más probable: **{top_idx[0]}-{top_idx[1]}**")
+
+            if model_name == 'xgb' and 'team_stats' in model_data:
+                with st.expander("📈 Estadísticas de los equipos (ESPN)"):
+                    stats_data = []
+                    for team, stats in model_data['team_stats'].items():
+                        stats_data.append({
+                            "Equipo": team,
+                            "Elo": f"{stats.get('elo', 1750):.0f}",
+                            "Ataque": f"{stats.get('attack', 1.5):.2f}",
+                            "Defensa": f"{stats.get('defense', 1.3):.2f}"
+                        })
+                    st.dataframe(pd.DataFrame(stats_data), hide_index=True, use_container_width=True)
+
+            if model_name == 'bayes' and 'att_ratings' in model_data:
+                with st.expander("📊 Ratings Ataque/Defensa (Bayesiano)"):
+                    ratings_data = []
+                    for team in [home_team, away_team]:
+                        ratings_data.append({
+                            "Equipo": team,
+                            "Ataque": f"{model_data['att_ratings'][team]:.3f}",
+                            "Defensa": f"{model_data['def_ratings'][team]:.3f}"
+                        })
+                    st.dataframe(pd.DataFrame(ratings_data), hide_index=True, use_container_width=True)
+
+        col_idx += 1
+
+    if len(valid_models) > 1:
+        st.markdown("---")
+        st.subheader("📋 Comparativa de Modelos")
+
+        comp_data = []
+        for model_name in valid_models:
+            model_data = results[model_name]
+            sm = model_data['score_matrix'][:7, :7]
+            top_idx = np.unravel_index(sm.argmax(), sm.shape)
+            comp_data.append({
+                "Modelo": "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost",
+                f"Goles {home_team[:10]}": f"{model_data['lam_h']:.2f}",
+                f"Goles {away_team[:10]}": f"{model_data['lam_a']:.2f}",
+                "Top marcador": f"{top_idx[0]}-{top_idx[1]}",
+                "Certeza del top": f"{sm[top_idx]:.1%}"
+            })
+
+        comp_df = pd.DataFrame(comp_data)
+        st.dataframe(comp_df, use_container_width=True, hide_index=True)
+
+def render_results2(results, elo, dixon_coles_rho):
+    """Renderiza los resultados de la predicción con resultados proximales"""
+    if 'teams' not in results:
+        st.error("❌ No hay resultados para mostrar.")
+        return
+    
+    home_team, away_team = results['teams']
+    elo_h = elo.get('home', 0)
+    elo_a = elo.get('away', 0)
+
+    st.markdown("---")
+    
+    # ============================================================
+    # RESULTADOS PROXIMALES (DESTACADOS)
+    # ============================================================
+    st.subheader("🎯 RESULTADO PROXIMAL")
+    st.caption("Predicción ajustada según el contexto del partido")
+
+    # Mostrar resultados proximales en una fila
+    prox_cols = st.columns(3)
+    
+    col_idx = 0
+    for model_name, model_data in results.items():
+        if model_name in ['teams', 'elo']:
+            continue
+        if 'proximal' not in model_data:
+            continue
+        
+        prox = model_data['proximal']
+        display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
+        
+        with prox_cols[col_idx % 3]:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #1a1f2e, #0f172a);
+                border: 2px solid rgba(0, 212, 255, 0.3);
+                border-radius: 16px;
+                padding: 20px;
+                text-align: center;
+            ">
+                <p style="color: #94a3b8; font-size: 0.75rem; margin: 0;">{display_name}</p>
+                <h1 style="
+                    font-family: 'Bebas Neue', sans-serif;
+                    font-size: 3rem;
+                    color: #00d4ff;
+                    margin: 8px 0;
+                ">{prox['proximal'][0]} - {prox['proximal'][1]}</h1>
+                <p style="color: #64748b; font-size: 0.7rem; margin: 0;">
+                    📊 Base: {prox['base'][0]}-{prox['base'][1]}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        col_idx += 1
+    
+    # Mostrar resultados específicos por contexto
+    st.markdown("---")
+    st.subheader("📊 Resultados por Contexto")
+    
+    context_cols = st.columns(2)
+    
+    # Columna 1: Gol del underdog
+    with context_cols[0]:
+        st.markdown("#### ⚡ Por Gol del Underdog")
+        for model_name, model_data in results.items():
+            if model_name in ['teams', 'elo']:
+                continue
+            if 'proximal' not in model_data:
+                continue
+            prox = model_data['proximal']
+            display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
+            if prox['underdog_first'] is not None:
+                st.write(f"**{display_name}:** {prox['underdog_first'][0]}-{prox['underdog_first'][1]}")
+            else:
+                st.write(f"**{display_name}:** Sin cambio")
+    
+    # Columna 2: Partido roto
+    with context_cols[1]:
+        st.markdown("#### 💥 Por Partido Roto")
+        for model_name, model_data in results.items():
+            if model_name in ['teams', 'elo']:
+                continue
+            if 'proximal' not in model_data:
+                continue
+            prox = model_data['proximal']
+            display_name = "Bayesiano" if model_name == 'bayes' else "XGBoost"
+            if prox['partido_roto'] is not None:
+                st.write(f"**{display_name}:** {prox['partido_roto'][0]}-{prox['partido_roto'][1]}")
+            else:
+                st.write(f"**{display_name}:** Sin cambio")
+    
+    # ============================================================
+    # RESTO DE RESULTADOS (igual que antes)
+    # ============================================================
+    st.markdown("---")
+    st.subheader("📊 Resumen de Predicción")
+
     """Renderiza los resultados de la predicción"""
     if 'teams' not in results:
         st.error("❌ No hay resultados para mostrar.")

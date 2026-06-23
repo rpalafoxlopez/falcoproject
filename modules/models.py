@@ -532,4 +532,44 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
         except Exception as e:
             errores.append(f"Bayesiano: {str(e)[:100]}")
 
+    # ========================================================================
+    # CALCULAR RESULTADOS PROXIMALES (FUERA DE LOS MODELOS)
+    # ========================================================================
+
+    # Determinar si es partido roto
+    es_favorito_local = elo_h > elo_a
+    partido_roto = False
+    if marcador_actual_h_ctx >= 3 and marcador_actual_h_ctx - marcador_actual_a_ctx >= 3:
+        partido_roto = True
+    elif marcador_actual_a_ctx >= 3 and marcador_actual_a_ctx - marcador_actual_h_ctx >= 3:
+        partido_roto = True
+
+    # Calcular resultados proximales para XGBoost
+    if 'xgb' in results:
+        prox_xgb = corrections.calcular_resultado_proximal(
+            results['xgb']['score_matrix'], 
+            results['xgb']['lam_h'], 
+            results['xgb']['lam_a'],
+            marcador_actual_h_ctx, marcador_actual_a_ctx,
+            es_favorito_local,
+            underdog_scored_first=underdog_scored_first,
+            minuto_gol=minuto_gol,
+            partido_roto=partido_roto
+        )
+        results['xgb']['proximal'] = prox_xgb
+
+    # Calcular resultados proximales para Bayesiano
+    if 'bayes' in results:
+        prox_bayes = corrections.calcular_resultado_proximal(
+            results['bayes']['score_matrix'], 
+            results['bayes']['lam_h'], 
+            results['bayes']['lam_a'],
+            marcador_actual_h_ctx, marcador_actual_a_ctx,
+            es_favorito_local,
+            underdog_scored_first=underdog_scored_first,
+            minuto_gol=minuto_gol,
+            partido_roto=partido_roto
+        )
+        results['bayes']['proximal'] = prox_bayes
+
     return results, errores, elo_h, elo_a
