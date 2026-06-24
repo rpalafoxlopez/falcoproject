@@ -15,7 +15,7 @@ def render_header():
     st.markdown("""
     <div class="title-bar">
         <h1>⚽ PREDICCIÓN DE MARCADORES</h1>
-        <p>Mundial FIFA 2026 — Modelo Bayesiano Jerárquico</p>
+        <div>Mundial FIFA 2026 — Modelo Bayesiano Jerárquico</div>
         <div class="badge-row">
             <span class="badge">Dixon-Coles</span>
             <span class="badge">Bayesiano</span>
@@ -331,17 +331,17 @@ def render_results(results, elo, dixon_coles_rho):
                 padding: 20px;
                 text-align: center;
             ">
-                <p style="color: #94a3b8; font-size: 0.75rem; margin: 0;">{display_name}</p>
+                <div style="color: #94a3b8; font-size: 0.75rem; margin: 0;">{display_name}</div>
                 <h1 style="
                     font-family: 'Bebas Neue', sans-serif;
                     font-size: 3rem;
                     color: {text_color};
                     margin: 8px 0;
                 ">{prox['proximal'][0]} - {prox['proximal'][1]}</h1>
-                <p style="color: #64748b; font-size: 0.7rem; margin: 0;">
+                <div style="color: #64748b; font-size: 0.7rem; margin: 0;">
                     📊 Base: {prox['base'][0]}-{prox['base'][1]}
                     {empate_tag}
-                </p>
+                </div>
             </div>
             """, unsafe_allow_html=True)
         col_idx += 1
@@ -502,7 +502,7 @@ def render_footer():
     st.markdown("---")
     st.markdown("""
     <div class="footer">
-        <p>
+        <div>
             ⚽ Modelo Bayesiano Jerárquico — Mundial FIFA 2026
             <span class="separator">·</span>
             🔧 Dixon-Coles (ρ=-0.13)
@@ -512,12 +512,12 @@ def render_footer():
             ⚽ Alta anotación
             <span class="separator">·</span>
             ⚡ Contextual
-        </p>
-        <p style="margin-top: 8px; color: #64748b; font-size: 0.7rem;">
+        </div>
+        <div style="margin-top: 8px; color: #64748b; font-size: 0.7rem;">
             <a href="https://satohachi.rpalafox.com/" target="_blank" style="color: #00d4ff;">🐝 rpalafox.com</a>
             <span class="separator">·</span>
             <span style="color: #64748b;">Uso exclusivamente educativo y de entretenimiento</span>
-        </p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
