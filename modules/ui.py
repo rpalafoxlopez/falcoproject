@@ -331,14 +331,13 @@ def render_results(results, elo, dixon_coles_rho):
                 padding: 20px;
                 text-align: center;
             ">
-                <div style="color: #94a3b8; font-size: 0.75rem; margin: 0;">{display_name}</div>
+                <div style="color: #94a3b8; font-size: 0.75rem; margin: 0;">{display_name}
                 <h1 style="
                     font-family: 'Bebas Neue', sans-serif;
                     font-size: 3rem;
                     color: {text_color};
                     margin: 8px 0;
                 ">{prox['proximal'][0]} - {prox['proximal'][1]}</h1>
-                <div style="color: #64748b; font-size: 0.7rem; margin: 0;">
                     📊 Base: {prox['base'][0]}-{prox['base'][1]}
                     {empate_tag}
                 </div>
