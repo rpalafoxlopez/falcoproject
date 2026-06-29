@@ -39,14 +39,14 @@ def render_status_bar():
         </div>
         """, unsafe_allow_html=True)
     with status_cols[1]:
-        st.markdown(f"""
+        st.markdown("""
         <div class="status-item">
             <div class="label">Modelo Principal</div>
             <div class="value cyan">Bayesiano</div>
         </div>
         """, unsafe_allow_html=True)
     with status_cols[2]:
-        st.markdown(f"""
+        st.markdown("""
         <div class="status-item">
             <div class="label">Ajustes Activos</div>
             <div class="value cyan">4 Tiempos + DC + Contextual</div>
@@ -105,7 +105,7 @@ def render_match_selector(wc_teams):
 
     match_date = st.date_input("📅 Fecha del Partido", data_loader.get_current_date_mexico())
     train_start = st.selectbox("📊 Ventana de entrenamiento", config.TRAIN_WINDOWS, index=0)
-    
+
     return home_team, away_team, match_date, train_start
 
 def render_model_selectors():
@@ -123,27 +123,27 @@ def render_corrections():
 def render_dynamic_adjustments():
     """Renderiza los ajustes dinámicos"""
     use_dynamic = st.checkbox("⚡ Ajuste por gol temprano del underdog", value=False)
-    
+
     underdog_scored_first = False
     minuto_gol = 15
-    
+
     if use_dynamic:
         underdog_scored_first = st.checkbox("🏃 El underdog anotó primero", value=False)
         minuto_gol = st.slider("⏱️ Minuto del primer gol", 1, 90, 15, help="Minuto en que el underdog anotó")
         st.caption("💡 Si el underdog anota primero, el partido se vuelve más abierto.")
-    
+
     return use_dynamic, underdog_scored_first, minuto_gol
 
 def render_momentum_adjustments():
     """Renderiza los ajustes por momentum"""
     use_momentum = st.checkbox("⚡ Ajuste por momentum (gol tardío del favorito)", value=False)
-    
+
     minuto_gol_favorito = None
     llegadas_previas_h = None
     llegadas_previas_a = None
     marcador_actual_h = 0
     marcador_actual_a = 0
-    
+
     if use_momentum:
         minuto_gol_favorito = st.slider("⏱️ Minuto del gol del favorito", 1, 90, 85)
         llegadas_previas_h = st.number_input("Llegadas del local en el cuarto anterior", 0, 20, 5)
@@ -154,7 +154,7 @@ def render_momentum_adjustments():
             marcador_actual_h = st.number_input("Goles local", 0, 10, 0, key="marc_h")
         with col_m2:
             marcador_actual_a = st.number_input("Goles visitante", 0, 10, 0, key="marc_a")
-    
+
     return use_momentum, minuto_gol_favorito, llegadas_previas_h, llegadas_previas_a, marcador_actual_h, marcador_actual_a
 
 def render_high_scoring_adjustment():
@@ -170,28 +170,28 @@ def render_contextual_adjustments():
     """Renderiza los ajustes contextuales avanzados (partidos rotos)"""
     st.markdown("---")
     st.subheader("⚡ Ajustes Contextuales")
-    
+
     use_contextual = st.checkbox("✅ Activar ajustes contextuales", value=True,
                                  help="Ajusta predicciones para partidos que se 'rompen'")
-    
+
     minuto_primer_gol = 10
     marcador_actual_h_ctx = 0
     marcador_actual_a_ctx = 0
-    
+
     if use_contextual:
         st.caption("⚽ Si el favorito anota temprano (min 1-15), el partido se rompe")
         minuto_primer_gol = st.slider("⏱️ Minuto del primer gol del favorito", 1, 90, 10,
                                       help="Minuto en que el favorito anotó el primer gol")
-        
+
         st.markdown("**Marcador actual:**")
         col_m1, col_m2 = st.columns(2)
         with col_m1:
             marcador_actual_h_ctx = st.number_input("Goles local", 0, 10, 0, key="ctx_h")
         with col_m2:
             marcador_actual_a_ctx = st.number_input("Goles visitante", 0, 10, 0, key="ctx_a")
-        
+
         st.caption("💡 Si hay 3+ goles de diferencia en el 1T, el partido se considera 'roto'")
-    
+
     return use_contextual, minuto_primer_gol, marcador_actual_h_ctx, marcador_actual_a_ctx
 
 def plot_results(sm, home_team, away_team, title, max_display=7):
@@ -285,18 +285,38 @@ def plot_results(sm, home_team, away_team, title, max_display=7):
     plt.tight_layout()
     return fig
 
-def render_results(results, elo, dixon_coles_rho):
+def render_results(results, elo, dixon_coles_rho, fase='Fase de Grupos'):
     """Renderiza los resultados de la predicción con resultados proximales"""
     if 'teams' not in results:
         st.error("❌ No hay resultados para mostrar.")
         return
-    
+
     home_team, away_team = results['teams']
     elo_h = elo.get('home', 0)
     elo_a = elo.get('away', 0)
 
     st.markdown("---")
-    
+
+    # ============================================================
+    # BADGE DE FASE DEL TORNEO
+    # ============================================================
+    fase_color = corrections.get_fase_color(fase)
+    fase_desc = corrections.get_fase_descripcion(fase)
+
+    st.markdown(f"""
+    <div style="
+        background: rgba(0, 212, 255, 0.05);
+        border: 1px solid rgba(0, 212, 255, 0.1);
+        border-radius: 8px;
+        padding: 8px 16px;
+        margin-bottom: 16px;
+        display: inline-block;
+    ">
+        🏆 <strong style="color: {fase_color};">{fase}</strong>
+        <span style="color: #64748b; font-size: 0.8rem; margin-left: 8px;">— {fase_desc}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     # ============================================================
     # RESULTADOS PROXIMALES (DESTACADOS)
     # ============================================================
@@ -305,23 +325,23 @@ def render_results(results, elo, dixon_coles_rho):
 
     # Mostrar resultados proximales en una fila
     prox_cols = st.columns(3)
-    
+
     col_idx = 0
     for model_name, model_data in results.items():
         if model_name in ['teams', 'elo']:
             continue
         if 'proximal' not in model_data:
             continue
-        
+
         prox = model_data['proximal']
         display_name = "🔵 Bayesiano" if model_name == 'bayes' else "🟢 XGBoost"
-        
-        # ✅ Verificar si es empate
+
+        # Verificar si es empate
         es_empate = prox.get('es_empate', False)
         empate_tag = " 📊 Empate más probable" if es_empate else ""
         border_color = 'rgba(255, 193, 7, 0.3)' if es_empate else 'rgba(0, 212, 255, 0.3)'
         text_color = '#ffc107' if es_empate else '#00d4ff'
-        
+
         with prox_cols[col_idx % 3]:
             st.markdown(f"""
             <div style="
@@ -346,13 +366,13 @@ def render_results(results, elo, dixon_coles_rho):
             """, unsafe_allow_html=True)
 
         col_idx += 1
-    
+
     # Mostrar resultados específicos por contexto
     st.markdown("---")
     st.subheader("📊 Resultados por Contexto")
-    
+
     context_cols = st.columns(2)
-    
+
     # Columna 1: Gol del underdog
     with context_cols[0]:
         st.markdown("#### ⚡ Por Gol del Underdog")
@@ -369,7 +389,7 @@ def render_results(results, elo, dixon_coles_rho):
                 st.write(f"**{display_name}:** {prox['underdog_first'][0]}-{prox['underdog_first'][1]}")
             else:
                 st.write(f"**{display_name}:** Sin cambio")
-    
+
     # Columna 2: Partido roto
     with context_cols[1]:
         st.markdown("#### 💥 Por Partido Roto")
@@ -386,7 +406,7 @@ def render_results(results, elo, dixon_coles_rho):
                 st.write(f"**{display_name}:** {prox['partido_roto'][0]}-{prox['partido_roto'][1]}")
             else:
                 st.write(f"**{display_name}:** Sin cambio")
-    
+
     # ============================================================
     # RESTO DE RESULTADOS
     # ============================================================
@@ -398,13 +418,13 @@ def render_results(results, elo, dixon_coles_rho):
         if key not in ['teams', 'elo'] and value is not None:
             if isinstance(value, dict) and 'score_matrix' in value:
                 valid_models.append(key)
-    
+
     if not valid_models:
         st.warning("⚠️ No hay modelos con predicciones válidas.")
         return
 
     cols = st.columns(min(len(valid_models), 4))
-    
+
     col_idx = 0
     for model_name in valid_models:
         model_data = results[model_name]
@@ -497,6 +517,35 @@ def render_results(results, elo, dixon_coles_rho):
 
         comp_df = pd.DataFrame(comp_data)
         st.dataframe(comp_df, use_container_width=True, hide_index=True)
+
+def render_fase_selector():
+    """Renderiza el selector de fase del torneo"""
+    st.markdown("---")
+    st.subheader("🏆 Fase del Torneo")
+
+    fase = st.selectbox(
+        "Selecciona la fase",
+        options=config.FASES,
+        index=0,
+        help="Los ajustes se adaptan según la fase del torneo"
+    )
+
+    # Mostrar descripción de la fase
+    descripcion = config.FASE_CONFIG[fase]['descripcion']
+    st.caption(f"💡 {descripcion}")
+
+    # Mostrar parámetros de la fase
+    with st.expander("📊 Parámetros de la fase"):
+        config_fase = config.FASE_CONFIG[fase]
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Factor Goles", f"{config_fase['factor_goles']:.2f}")
+        with col2:
+            st.metric("Factor Empates", f"{config_fase['factor_empates']:.2f}")
+        with col3:
+            st.metric("Dixon-Coles ρ", f"{config_fase['rho_dixon_coles']:.3f}")
+
+    return fase
 
 def render_footer():
     """Renderiza el footer"""

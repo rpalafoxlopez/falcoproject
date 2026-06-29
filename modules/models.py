@@ -18,62 +18,62 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
     """Entrena el modelo Bayesiano - VERSIÓN SIMPLIFICADA Y ROBUSTA"""
     if not config.PYMC_AVAILABLE:
         return None, None, None, None, None
-    
+
     try:
         import pymc as pm
         import arviz as az
-        
+
         # Filtrar datos
         train_filtered = train.dropna(subset=['home_score', 'away_score'])
         train_filtered = train_filtered[(train_filtered['home_score'] >= 0) & (train_filtered['away_score'] >= 0)]
-        
+
         if len(train_filtered) < 20:
             st.warning(f"⚠️ Bayesiano: Datos insuficientes ({len(train_filtered)} partidos)")
             return None, None, None, None, None
-        
+
         # Preparar datos
         home_idx = train_filtered.home_team.map(team_idx).values
         away_idx = train_filtered.away_team.map(team_idx).values
         home_goals = train_filtered.home_score.values.astype(int)
         away_goals = train_filtered.away_score.values.astype(int)
-        
+
         # Verificar equipos
         if home_team not in team_idx or away_team not in team_idx:
             return None, None, None, None, None
-        
+
         coords = {"team": teams}
-        
+
         with pm.Model(coords=coords) as bayes_model:
             # Priors más restrictivos para mejor convergencia
             sigma_att = pm.HalfNormal("sigma_att", sigma=0.3)
             sigma_def = pm.HalfNormal("sigma_def", sigma=0.3)
-            
+
             # Ataques y defensas centrados
             attack = pm.Normal("attack", mu=0.0, sigma=sigma_att, dims="team")
             defense = pm.Normal("defense", mu=0.0, sigma=sigma_def, dims="team")
-            
+
             # Ataque y defensa centrados en cero
             attack_centered = attack - pm.math.mean(attack)
             defense_centered = defense - pm.math.mean(defense)
-            
+
             if neutral_venue:
                 home_adv = 0.0
             else:
                 home_adv = pm.Normal("home_adv", mu=0.15, sigma=0.2)
-            
+
             intercept = pm.Normal("intercept", mu=0.0, sigma=0.3)
-            
+
             # Calcular parámetros de Poisson
             log_theta_home = intercept + home_adv + attack_centered[home_idx] - defense_centered[away_idx]
             log_theta_away = intercept + attack_centered[away_idx] - defense_centered[home_idx]
-            
+
             theta_home = pm.math.exp(log_theta_home)
             theta_away = pm.math.exp(log_theta_away)
-            
+
             # Observaciones
             pm.Poisson("home_goals_obs", mu=theta_home, observed=home_goals)
             pm.Poisson("away_goals_obs", mu=theta_away, observed=away_goals)
-            
+
             # Muestreo con configuraciones robustas
             idata = pm.sample(
                 draws=600,
@@ -85,36 +85,36 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
                 progressbar=False,
                 return_inferencedata=True
             )
-        
+
         # Extraer resultados usando métodos más seguros
         post = idata.posterior
-        
+
         # Obtener valores usando mean directamente
         intercept_mean = float(post["intercept"].mean().values)
         home_adv_mean = float(post["home_adv"].mean().values) if not neutral_venue else 0.0
-        
+
         # Obtener ataques y defensas
         attack_vals = post["attack"].mean(dim=["chain", "draw"]).values
         defense_vals = post["defense"].mean(dim=["chain", "draw"]).values
-        
+
         # Centrar manualmente
         attack_mean = np.mean(attack_vals)
         defense_mean = np.mean(defense_vals)
         attack_centered_vals = attack_vals - attack_mean
         defense_centered_vals = defense_vals - defense_mean
-        
+
         # Obtener índices
         hi = team_idx[home_team]
         ai = team_idx[away_team]
-        
+
         # Calcular lambdas
         lam_h = np.exp(intercept_mean + home_adv_mean + attack_centered_vals[hi] - defense_centered_vals[ai])
         lam_a = np.exp(intercept_mean + attack_centered_vals[ai] - defense_centered_vals[hi])
-        
+
         # Asegurar valores mínimos
         lam_h = max(lam_h, 0.1)
         lam_a = max(lam_a, 0.1)
-        
+
         # Obtener stats para ajustes
         stats_h = data_loader.get_espn_team_stats(home_team)
         stats_a = data_loader.get_espn_team_stats(away_team)
@@ -150,7 +150,7 @@ def train_bayesian_model(train, teams, team_idx, home_team, away_team, max_goals
         def_ratings = {team: float(defense_centered_vals[team_idx[team]]) for team in teams}
 
         return score_matrix, lam_h, lam_a, att_ratings, def_ratings
-        
+
     except Exception as e:
         st.warning(f"⚠️ Bayesiano: {str(e)}")
         return None, None, None, None, None
@@ -328,6 +328,52 @@ def train_xgboost_model(hist, raw_data, home_team, away_team, max_goals=8,
         return None, None, None, None
 
 # ============================================================================
+# CALCULAR RESULTADO PROXIMAL
+# ============================================================================
+
+def calcular_proximal(sm, lam_h, lam_a, use_dynamic, underdog_scored_first,
+                      use_contextual, minuto_primer_gol, marcador_h, marcador_a):
+    """Calcula el resultado proximal (más probable) con contexto"""
+    # Resultado base (sin ajustes)
+    top_idx = np.unravel_index(sm.argmax(), sm.shape)
+    base = (int(top_idx[0]), int(top_idx[1]))
+
+    # Verificar si empate es el más probable
+    draw_prob = np.sum(np.diag(sm[:7, :7]))
+    home_win_prob = np.sum(np.tril(sm[:7, :7], k=-1))
+    away_win_prob = np.sum(np.triu(sm[:7, :7], k=1))
+    es_empate = draw_prob > home_win_prob and draw_prob > away_win_prob
+
+    proximal_result = base
+    underdog_first = None
+    partido_roto = None
+
+    # Ajuste por gol del underdog
+    if use_dynamic and underdog_scored_first:
+        # El partido se vuelve más abierto → más goles
+        underdog_first = (base[0] + 1, base[1] + 1) if not es_empate else base
+        proximal_result = underdog_first
+
+    # Ajuste por partido roto
+    if use_contextual:
+        diff = abs(marcador_h - marcador_a)
+        if minuto_primer_gol <= 15 and diff >= 2:
+            # Partido ya roto → mantener tendencia
+            if marcador_h > marcador_a:
+                partido_roto = (marcador_h + 1, marcador_a)
+            else:
+                partido_roto = (marcador_h, marcador_a + 1)
+            proximal_result = partido_roto
+
+    return {
+        'base': base,
+        'proximal': proximal_result,
+        'underdog_first': underdog_first,
+        'partido_roto': partido_roto,
+        'es_empate': es_empate
+    }
+
+# ============================================================================
 # EJECUTAR PREDICCIÓN
 # ============================================================================
 
@@ -339,237 +385,260 @@ def run_prediction(raw, home_team, away_team, match_date, train_start, neutral_v
                    roster_factors, home_team_roster, away_team_roster,
                    use_high_scoring,
                    use_contextual=False, minuto_primer_gol=10,
-                   marcador_actual_h_ctx=0, marcador_actual_a_ctx=0):
-    """Ejecuta la predicción completa"""
-    
-    # Preparar datos
-    CUTOFF = pd.Timestamp(match_date) - pd.Timedelta(days=1)
-    mask = (raw["date"] >= train_start) & (raw["date"] <= CUTOFF) & raw["home_score"].notna()
-    train = raw.loc[mask].copy()
-    train["home_score"] = train["home_score"].astype(int)
-    train["away_score"] = train["away_score"].astype(int)
-    train["neutral"] = train["neutral"].astype(str).str.upper().eq("TRUE")
+                   marcador_actual_h_ctx=0, marcador_actual_a_ctx=0,
+                   fase='Fase de Grupos'):
+    """Ejecuta la predicción completa con todos los ajustes"""
 
-    teams = sorted(pd.concat([train.home_team, train.away_team]).unique())
-    team_idx = {t: i for i, t in enumerate(teams)}
+    results = {'teams': (home_team, away_team)}
+    errores = []
 
-    if home_team not in teams or away_team not in teams:
-        return None, [f"{home_team if home_team not in teams else away_team} no tiene suficientes partidos"], 0, 0
+    # Preparar datos de entrenamiento
+    CUTOFF = pd.to_datetime(match_date)
+    train = raw[(raw.date <= CUTOFF) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
+    train = train[train.date >= train_start].copy()
 
-    # Obtener Elos
+    # Obtener ELO para retorno
     stats_h = data_loader.get_espn_team_stats(home_team)
     stats_a = data_loader.get_espn_team_stats(away_team)
     elo_h = stats_h.get('elo', 1750)
     elo_a = stats_a.get('elo', 1750)
 
-    if elo_h > elo_a:
-        favorito_elo = elo_h
-        underdog_elo = elo_a
-    else:
-        favorito_elo = elo_a
-        underdog_elo = elo_h
-
-    results = {}
-    errores = []
-    
-    results['teams'] = (home_team, away_team)
-    results['elo'] = {'home': elo_h, 'away': elo_a}
-
-    # ========================================================================
-    # XGBOOST
-    # ========================================================================
-    
-    if use_xgboost:
-        try:
-            with st.spinner("⚙️ Entrenando XGBoost..."):
-                hist = raw[(raw.date <= CUTOFF) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
-                hist = hist[hist.date >= train_start].copy()
-                sm_xgb, lam_h_xgb, lam_a_xgb, team_stats = train_xgboost_model(
-                    hist, raw, home_team, away_team, max_goals_display,
-                    use_hydration, use_dixon_coles, neutral_venue, use_high_scoring
-                )
-                if sm_xgb is not None:
-                    # Momentum
-                    if use_momentum:
-                        es_favorito_local = elo_h > elo_a
-                        lam_h_xgb, lam_a_xgb = corrections.ajustar_por_momentum(
-                            lam_h_xgb, lam_a_xgb,
-                            home_team, away_team,
-                            minuto_gol=minuto_gol_favorito,
-                            es_favorito_local=es_favorito_local,
-                            llegadas_previas_h=llegadas_previas_h,
-                            llegadas_previas_a=llegadas_previas_a,
-                            marcador_actual={'home': marcador_actual_h, 'away': marcador_actual_a}
-                        )
-                        goals = np.arange(0, max_goals_display + 1)
-                        sm_xgb = np.outer(poisson.pmf(goals, lam_h_xgb), poisson.pmf(goals, lam_a_xgb))
-                        if use_dixon_coles:
-                            sm_xgb = corrections.aplicar_dixon_coles(sm_xgb, lam_h_xgb, lam_a_xgb)
-                        else:
-                            suma = sm_xgb.sum()
-                            if suma > 0:
-                                sm_xgb = sm_xgb / suma
-
-                    # Contextual: Ajustes para partidos rotos
-                    if use_contextual:
-                        es_favorito_local = elo_h > elo_a
-                        lam_h_xgb, lam_a_xgb = corrections.ajuste_completo_contextual(
-                            lam_h_xgb, lam_a_xgb,
-                            home_team, away_team,
-                            es_favorito_local=es_favorito_local,
-                            minuto_primer_gol=minuto_primer_gol,
-                            marcador_actual={'home': marcador_actual_h_ctx, 'away': marcador_actual_a_ctx},
-                            use_early_goal=True,
-                            use_partido_roto=True,
-                            use_motivacion=True,
-                            elo_h=elo_h,
-                            elo_a=elo_a
-                        )
-                        goals = np.arange(0, max_goals_display + 1)
-                        sm_xgb = np.outer(poisson.pmf(goals, lam_h_xgb), poisson.pmf(goals, lam_a_xgb))
-                        if use_dixon_coles:
-                            sm_xgb = corrections.aplicar_dixon_coles(sm_xgb, lam_h_xgb, lam_a_xgb)
-                        else:
-                            suma = sm_xgb.sum()
-                            if suma > 0:
-                                sm_xgb = sm_xgb / suma
-
-                    # Gol temprano del underdog
-                    if use_dynamic:
-                        sm_xgb = corrections.ajustar_por_gol_temprano(
-                            sm_xgb, lam_h_xgb, lam_a_xgb,
-                            home_team, away_team,
-                            underdog_scored_first, minuto_gol,
-                            favorito_elo, underdog_elo
-                        )
-
-                    results['xgb'] = {
-                        'score_matrix': sm_xgb,
-                        'lam_h': lam_h_xgb,
-                        'lam_a': lam_a_xgb,
-                        'team_stats': team_stats
-                    }
-                else:
-                    errores.append("XGBoost falló")
-        except Exception as e:
-            errores.append(f"XGBoost: {str(e)[:100]}")
-
-    # ========================================================================
+    # =====================================================================
     # BAYESIANO
-    # ========================================================================
-
-    if use_bayesian and config.PYMC_AVAILABLE:
+    # =====================================================================
+    if use_bayesian:
         try:
-            with st.spinner("🧠 Entrenando Bayesiano (1-2 min)..."):
+            with st.spinner("⚙️ Entrenando Bayesiano..."):
+                teams = sorted(set(train.home_team) | set(train.away_team))
+                team_idx = {t: i for i, t in enumerate(teams)}
+
                 sm_bayes, lam_h_bayes, lam_a_bayes, att_ratings, def_ratings = train_bayesian_model(
                     train, teams, team_idx, home_team, away_team, max_goals_display,
                     use_hydration, use_dixon_coles, neutral_venue, use_high_scoring
                 )
+
                 if sm_bayes is not None:
-                    # Momentum
-                    if use_momentum:
-                        es_favorito_local = elo_h > elo_a
-                        lam_h_bayes, lam_a_bayes = corrections.ajustar_por_momentum(
-                            lam_h_bayes, lam_a_bayes,
-                            home_team, away_team,
-                            minuto_gol=minuto_gol_favorito,
-                            es_favorito_local=es_favorito_local,
-                            llegadas_previas_h=llegadas_previas_h,
-                            llegadas_previas_a=llegadas_previas_a,
-                            marcador_actual={'home': marcador_actual_h, 'away': marcador_actual_a}
-                        )
+                    # Aplicar ajuste por fase del torneo
+                    lam_h_bayes, lam_a_bayes, nuevo_rho, factor_hs = corrections.ajuste_por_fase(
+                        lam_h_bayes, lam_a_bayes, fase
+                    )
+
+                    # Recalcular matriz con lambdas ajustados
+                    goals = np.arange(0, max_goals_display + 1)
+                    sm_bayes = np.outer(poisson.pmf(goals, lam_h_bayes), poisson.pmf(goals, lam_a_bayes))
+
+                    if use_dixon_coles:
+                        sm_bayes = corrections.aplicar_dixon_coles(sm_bayes, lam_h_bayes, lam_a_bayes, nuevo_rho)
+                    else:
+                        suma = sm_bayes.sum()
+                        if suma > 0:
+                            sm_bayes = sm_bayes / suma
+
+                    sm_bayes = corrections.ajustar_matriz_por_fase(
+                        sm_bayes, lam_h_bayes, lam_a_bayes, fase, max_goals_display
+                    )
+
+                    # Ajuste por momentum (gol tardío del favorito)
+                    if use_momentum and minuto_gol_favorito is not None:
+                        minutos_restantes = max(90 - minuto_gol_favorito, 1)
+                        factor_tiempo = minutos_restantes / 90.0
+
+                        # El favorito (mayor ELO) presiona más
+                        if elo_h > elo_a:
+                            lam_h_bayes = lam_h_bayes * (1 + 0.3 * factor_tiempo * (llegadas_previas_h or 5) / 10)
+                            lam_a_bayes = lam_a_bayes * (1 - 0.1 * factor_tiempo)
+                        else:
+                            lam_a_bayes = lam_a_bayes * (1 + 0.3 * factor_tiempo * (llegadas_previas_a or 3) / 10)
+                            lam_h_bayes = lam_h_bayes * (1 - 0.1 * factor_tiempo)
+
+                        # Ajustar por marcador actual (goles ya anotados)
+                        goles_esperados_h = lam_h_bayes * factor_tiempo
+                        goles_esperados_a = lam_a_bayes * factor_tiempo
+                        lam_h_bayes = marcador_actual_h + goles_esperados_h
+                        lam_a_bayes = marcador_actual_a + goles_esperados_a
+
                         goals = np.arange(0, max_goals_display + 1)
                         sm_bayes = np.outer(poisson.pmf(goals, lam_h_bayes), poisson.pmf(goals, lam_a_bayes))
                         if use_dixon_coles:
-                            sm_bayes = corrections.aplicar_dixon_coles(sm_bayes, lam_h_bayes, lam_a_bayes)
+                            sm_bayes = corrections.aplicar_dixon_coles(sm_bayes, lam_h_bayes, lam_a_bayes, nuevo_rho)
                         else:
                             suma = sm_bayes.sum()
                             if suma > 0:
                                 sm_bayes = sm_bayes / suma
 
-                    # Contextual: Ajustes para partidos rotos
+                    # Ajuste contextual (partido roto)
                     if use_contextual:
-                        es_favorito_local = elo_h > elo_a
-                        lam_h_bayes, lam_a_bayes = corrections.ajuste_completo_contextual(
-                            lam_h_bayes, lam_a_bayes,
-                            home_team, away_team,
-                            es_favorito_local=es_favorito_local,
-                            minuto_primer_gol=minuto_primer_gol,
-                            marcador_actual={'home': marcador_actual_h_ctx, 'away': marcador_actual_a_ctx},
-                            use_early_goal=True,
-                            use_partido_roto=True,
-                            use_motivacion=True,
-                            elo_h=elo_h,
-                            elo_a=elo_a
-                        )
+                        diff_ctx = abs(marcador_actual_h_ctx - marcador_actual_a_ctx)
+                        if minuto_primer_gol <= 15 and diff_ctx >= 2:
+                            # Partido roto: favorito ya ganando por 2+ al min 15
+                            factor_roto = 1.4
+                            if marcador_actual_h_ctx > marcador_actual_a_ctx:
+                                lam_h_bayes = lam_h_bayes * factor_roto
+                            else:
+                                lam_a_bayes = lam_a_bayes * factor_roto
+
+                            goals = np.arange(0, max_goals_display + 1)
+                            sm_bayes = np.outer(poisson.pmf(goals, lam_h_bayes), poisson.pmf(goals, lam_a_bayes))
+                            if use_dixon_coles:
+                                sm_bayes = corrections.aplicar_dixon_coles(sm_bayes, lam_h_bayes, lam_a_bayes, nuevo_rho)
+                            else:
+                                suma = sm_bayes.sum()
+                                if suma > 0:
+                                    sm_bayes = sm_bayes / suma
+
+                    # Ajuste dinámico (gol temprano del underdog)
+                    if use_dynamic and underdog_scored_first:
+                        factor_underdog = max(1.0, 1.3 - (minuto_gol / 100))
+                        # El underdog anotó primero → partido más abierto
+                        if elo_h > elo_a:  # Local era favorito
+                            lam_h_bayes = lam_h_bayes * factor_underdog
+                            lam_a_bayes = lam_a_bayes * (1 + 0.2 * factor_underdog)
+                        else:  # Visitante era favorito
+                            lam_a_bayes = lam_a_bayes * factor_underdog
+                            lam_h_bayes = lam_h_bayes * (1 + 0.2 * factor_underdog)
+
                         goals = np.arange(0, max_goals_display + 1)
                         sm_bayes = np.outer(poisson.pmf(goals, lam_h_bayes), poisson.pmf(goals, lam_a_bayes))
                         if use_dixon_coles:
-                            sm_bayes = corrections.aplicar_dixon_coles(sm_bayes, lam_h_bayes, lam_a_bayes)
+                            sm_bayes = corrections.aplicar_dixon_coles(sm_bayes, lam_h_bayes, lam_a_bayes, nuevo_rho)
                         else:
                             suma = sm_bayes.sum()
                             if suma > 0:
                                 sm_bayes = sm_bayes / suma
 
-                    # Gol temprano del underdog
-                    if use_dynamic:
-                        sm_bayes = corrections.ajustar_por_gol_temprano(
-                            sm_bayes, lam_h_bayes, lam_a_bayes,
-                            home_team, away_team,
-                            underdog_scored_first, minuto_gol,
-                            favorito_elo, underdog_elo
-                        )
+                    # Calcular resultados proximales
+                    proximal = calcular_proximal(sm_bayes, lam_h_bayes, lam_a_bayes, 
+                                                  use_dynamic, underdog_scored_first,
+                                                  use_contextual, minuto_primer_gol,
+                                                  marcador_actual_h_ctx, marcador_actual_a_ctx)
 
                     results['bayes'] = {
                         'score_matrix': sm_bayes,
                         'lam_h': lam_h_bayes,
                         'lam_a': lam_a_bayes,
                         'att_ratings': att_ratings,
-                        'def_ratings': def_ratings
+                        'def_ratings': def_ratings,
+                        'proximal': proximal
                     }
                 else:
                     errores.append("Bayesiano falló")
         except Exception as e:
             errores.append(f"Bayesiano: {str(e)[:100]}")
 
-    # ========================================================================
-    # CALCULAR RESULTADOS PROXIMALES (FUERA DE LOS MODELOS)
-    # ========================================================================
+    # =====================================================================
+    # XGBOOST
+    # =====================================================================
+    if use_xgboost:
+        try:
+            with st.spinner("⚙️ Entrenando XGBoost..."):
+                hist = raw[(raw.date <= CUTOFF) & raw.home_score.notna()].sort_values("date").reset_index(drop=True)
+                hist = hist[hist.date >= train_start].copy()
 
-    # Determinar si es partido roto
-    es_favorito_local = elo_h > elo_a
-    partido_roto = False
-    if marcador_actual_h_ctx >= 3 and marcador_actual_h_ctx - marcador_actual_a_ctx >= 3:
-        partido_roto = True
-    elif marcador_actual_a_ctx >= 3 and marcador_actual_a_ctx - marcador_actual_h_ctx >= 3:
-        partido_roto = True
+                sm_xgb, lam_h_xgb, lam_a_xgb, team_stats = train_xgboost_model(
+                    hist, raw, home_team, away_team, max_goals_display,
+                    use_hydration, use_dixon_coles, neutral_venue, use_high_scoring
+                )
 
-    # Calcular resultados proximales para XGBoost
-    if 'xgb' in results:
-        prox_xgb = corrections.calcular_resultado_proximal(
-            results['xgb']['score_matrix'], 
-            results['xgb']['lam_h'], 
-            results['xgb']['lam_a'],
-            marcador_actual_h_ctx, marcador_actual_a_ctx,
-            es_favorito_local,
-            underdog_scored_first=underdog_scored_first,
-            minuto_gol=minuto_gol,
-            partido_roto=partido_roto
-        )
-        results['xgb']['proximal'] = prox_xgb
+                if sm_xgb is not None:
+                    # Aplicar ajuste por fase del torneo
+                    lam_h_xgb, lam_a_xgb, nuevo_rho, factor_hs = corrections.ajuste_por_fase(
+                        lam_h_xgb, lam_a_xgb, fase
+                    )
 
-    # Calcular resultados proximales para Bayesiano
-    if 'bayes' in results:
-        prox_bayes = corrections.calcular_resultado_proximal(
-            results['bayes']['score_matrix'], 
-            results['bayes']['lam_h'], 
-            results['bayes']['lam_a'],
-            marcador_actual_h_ctx, marcador_actual_a_ctx,
-            es_favorito_local,
-            underdog_scored_first=underdog_scored_first,
-            minuto_gol=minuto_gol,
-            partido_roto=partido_roto
-        )
-        results['bayes']['proximal'] = prox_bayes
+                    goals = np.arange(0, max_goals_display + 1)
+                    sm_xgb = np.outer(poisson.pmf(goals, lam_h_xgb), poisson.pmf(goals, lam_a_xgb))
+
+                    if use_dixon_coles:
+                        sm_xgb = corrections.aplicar_dixon_coles(sm_xgb, lam_h_xgb, lam_a_xgb, nuevo_rho)
+                    else:
+                        suma = sm_xgb.sum()
+                        if suma > 0:
+                            sm_xgb = sm_xgb / suma
+
+                    sm_xgb = corrections.ajustar_matriz_por_fase(
+                        sm_xgb, lam_h_xgb, lam_a_xgb, fase, max_goals_display
+                    )
+
+                    # Momentum
+                    if use_momentum and minuto_gol_favorito is not None:
+                        minutos_restantes = max(90 - minuto_gol_favorito, 1)
+                        factor_tiempo = minutos_restantes / 90.0
+
+                        if elo_h > elo_a:
+                            lam_h_xgb = lam_h_xgb * (1 + 0.3 * factor_tiempo * (llegadas_previas_h or 5) / 10)
+                            lam_a_xgb = lam_a_xgb * (1 - 0.1 * factor_tiempo)
+                        else:
+                            lam_a_xgb = lam_a_xgb * (1 + 0.3 * factor_tiempo * (llegadas_previas_a or 3) / 10)
+                            lam_h_xgb = lam_h_xgb * (1 - 0.1 * factor_tiempo)
+
+                        goles_esperados_h = lam_h_xgb * factor_tiempo
+                        goles_esperados_a = lam_a_xgb * factor_tiempo
+                        lam_h_xgb = marcador_actual_h + goles_esperados_h
+                        lam_a_xgb = marcador_actual_a + goles_esperados_a
+
+                        goals = np.arange(0, max_goals_display + 1)
+                        sm_xgb = np.outer(poisson.pmf(goals, lam_h_xgb), poisson.pmf(goals, lam_a_xgb))
+                        if use_dixon_coles:
+                            sm_xgb = corrections.aplicar_dixon_coles(sm_xgb, lam_h_xgb, lam_a_xgb, nuevo_rho)
+                        else:
+                            suma = sm_xgb.sum()
+                            if suma > 0:
+                                sm_xgb = sm_xgb / suma
+
+                    # Contextual
+                    if use_contextual:
+                        diff_ctx = abs(marcador_actual_h_ctx - marcador_actual_a_ctx)
+                        if minuto_primer_gol <= 15 and diff_ctx >= 2:
+                            factor_roto = 1.4
+                            if marcador_actual_h_ctx > marcador_actual_a_ctx:
+                                lam_h_xgb = lam_h_xgb * factor_roto
+                            else:
+                                lam_a_xgb = lam_a_xgb * factor_roto
+
+                            goals = np.arange(0, max_goals_display + 1)
+                            sm_xgb = np.outer(poisson.pmf(goals, lam_h_xgb), poisson.pmf(goals, lam_a_xgb))
+                            if use_dixon_coles:
+                                sm_xgb = corrections.aplicar_dixon_coles(sm_xgb, lam_h_xgb, lam_a_xgb, nuevo_rho)
+                            else:
+                                suma = sm_xgb.sum()
+                                if suma > 0:
+                                    sm_xgb = sm_xgb / suma
+
+                    # Gol temprano del underdog
+                    if use_dynamic and underdog_scored_first:
+                        factor_underdog = max(1.0, 1.3 - (minuto_gol / 100))
+                        if elo_h > elo_a:
+                            lam_h_xgb = lam_h_xgb * factor_underdog
+                            lam_a_xgb = lam_a_xgb * (1 + 0.2 * factor_underdog)
+                        else:
+                            lam_a_xgb = lam_a_xgb * factor_underdog
+                            lam_h_xgb = lam_h_xgb * (1 + 0.2 * factor_underdog)
+
+                        goals = np.arange(0, max_goals_display + 1)
+                        sm_xgb = np.outer(poisson.pmf(goals, lam_h_xgb), poisson.pmf(goals, lam_a_xgb))
+                        if use_dixon_coles:
+                            sm_xgb = corrections.aplicar_dixon_coles(sm_xgb, lam_h_xgb, lam_a_xgb, nuevo_rho)
+                        else:
+                            suma = sm_xgb.sum()
+                            if suma > 0:
+                                sm_xgb = sm_xgb / suma
+
+                    # Calcular resultados proximales
+                    proximal = calcular_proximal(sm_xgb, lam_h_xgb, lam_a_xgb,
+                                                  use_dynamic, underdog_scored_first,
+                                                  use_contextual, minuto_primer_gol,
+                                                  marcador_actual_h_ctx, marcador_actual_a_ctx)
+
+                    results['xgb'] = {
+                        'score_matrix': sm_xgb,
+                        'lam_h': lam_h_xgb,
+                        'lam_a': lam_a_xgb,
+                        'team_stats': team_stats,
+                        'proximal': proximal
+                    }
+                else:
+                    errores.append("XGBoost falló")
+        except Exception as e:
+            errores.append(f"XGBoost: {str(e)[:100]}")
 
     return results, errores, elo_h, elo_a

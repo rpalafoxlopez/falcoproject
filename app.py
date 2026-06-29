@@ -28,11 +28,7 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Lexend:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap');
 
-    /* ============================================================
-       🎨 VARIABLES DE COLOR - PALETA PREDICTOR PRO
-       ============================================================ */
     :root {
-        /* Colores de fondo */
         --bg-background: #0b1326;
         --bg-surface: #0b1326;
         --bg-surface-container-low: #131b2e;
@@ -40,12 +36,8 @@ st.markdown("""
         --bg-surface-container-high: #222a3d;
         --bg-surface-container-lowest: #060e20;
         --bg-surface-variant: #2d3449;
-        
-        /* Colores de borde */
         --border-outline: #849495;
         --border-outline-variant: #3b494b;
-        
-        /* Colores de texto */
         --text-on-surface: #dae2fd;
         --text-on-surface-variant: #b9cacb;
         --text-primary: #dbfcff;
@@ -53,8 +45,6 @@ st.markdown("""
         --text-on-secondary: #3c0090;
         --text-on-primary: #00363a;
         --text-on-tertiary: #67001f;
-        
-        /* Colores de acento */
         --accent-primary-fixed-dim: #00dbe9;
         --accent-primary-fixed: #7df4ff;
         --accent-secondary: #d1bcff;
@@ -62,24 +52,16 @@ st.markdown("""
         --accent-tertiary: #fff3f3;
         --accent-error: #ffb4ab;
         --accent-error-container: #93000a;
-        
-        /* Sombras y efectos */
         --shadow-glow: 0 0 30px rgba(0, 219, 233, 0.05);
         --glass-bg: rgba(23, 31, 51, 0.7);
     }
 
-    /* ============================================================
-       🎨 FONDO DE LA APP
-       ============================================================ */
     .stApp {
         background: var(--bg-background);
         font-family: 'Inter', sans-serif;
         color: var(--text-on-surface);
     }
 
-    /* ============================================================
-       🎨 SIDEBAR - ESTILO DARK MODERN
-       ============================================================ */
     [data-testid="stSidebar"] {
         background: var(--bg-surface-container-low) !important;
         border-right: 1px solid var(--border-outline-variant) !important;
@@ -102,7 +84,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Sidebar - Selectores personalizados */
     [data-testid="stSidebar"] .stSelectbox > div > div {
         background: var(--bg-surface-container-lowest) !important;
         border: 1px solid var(--border-outline-variant) !important;
@@ -119,7 +100,6 @@ st.markdown("""
         ring: 2px solid var(--accent-primary-fixed-dim) !important;
     }
 
-    /* Sidebar - Checkboxes */
     [data-testid="stSidebar"] .stCheckbox > div > div > div {
         background: var(--accent-secondary-container) !important;
         border-radius: 4px !important;
@@ -128,12 +108,10 @@ st.markdown("""
         color: var(--text-on-surface) !important;
     }
 
-    /* Sidebar - Sliders */
     [data-testid="stSidebar"] .stSlider > div > div > div {
         background: var(--accent-primary-fixed-dim) !important;
     }
 
-    /* Sidebar - Date Input */
     [data-testid="stSidebar"] .stDateInput > div > div {
         background: var(--bg-surface-container-lowest) !important;
         border: 1px solid var(--border-outline-variant) !important;
@@ -141,10 +119,12 @@ st.markdown("""
         color: var(--text-on-surface) !important;
     }
 
-    /* Sidebar - Buttons */
+    /* ============================================================
+       🎨 BOTONES SIDEBAR - COLOR CIAN (reemplazado morado)
+       ============================================================ */
     [data-testid="stSidebar"] .stButton > button {
-        background: var(--accent-secondary) !important;
-        color: var(--text-on-secondary) !important;
+        background: linear-gradient(135deg, #00a8b5, #00dbe9) !important;
+        color: #0b1326 !important;
         font-weight: 700 !important;
         border: none !important;
         border-radius: 12px !important;
@@ -152,20 +132,19 @@ st.markdown("""
         font-family: 'Inter', sans-serif !important;
         letter-spacing: 0.5px !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 20px rgba(209, 188, 255, 0.3) !important;
+        box-shadow: 0 4px 20px rgba(0, 219, 233, 0.3) !important;
         text-transform: uppercase;
         font-size: 0.85rem !important;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(209, 188, 255, 0.4) !important;
+        box-shadow: 0 8px 30px rgba(0, 219, 233, 0.4) !important;
         opacity: 0.9;
     }
     [data-testid="stSidebar"] .stButton > button:active {
         transform: scale(0.95);
     }
 
-    /* Sidebar - Expander */
     [data-testid="stSidebar"] .streamlit-expanderHeader {
         background: var(--bg-surface-container) !important;
         border: 1px solid var(--border-outline-variant) !important;
@@ -173,15 +152,11 @@ st.markdown("""
         color: var(--text-primary) !important;
     }
 
-    /* Sidebar - Captions */
     [data-testid="stSidebar"] .stCaption {
         color: var(--text-on-surface-variant) !important;
         font-size: 0.75rem !important;
     }
 
-    /* ============================================================
-       🎨 HEADERS
-       ============================================================ */
     h1, h2, h3, h4 {
         font-family: 'Lexend', sans-serif !important;
         color: var(--text-primary) !important;
@@ -192,9 +167,6 @@ st.markdown("""
         font-size: 2.5rem !important;
     }
 
-    /* ============================================================
-       🎨 TITLE BAR
-       ============================================================ */
     .title-bar {
         background: linear-gradient(135deg, #0b1326, #171f33);
         border: 1px solid var(--border-outline-variant);
@@ -245,9 +217,6 @@ st.markdown("""
         flex-wrap: wrap;
     }
 
-    /* ============================================================
-       🎨 BADGES
-       ============================================================ */
     .badge {
         background: rgba(0, 219, 233, 0.08);
         border: 1px solid rgba(0, 219, 233, 0.15);
@@ -274,9 +243,6 @@ st.markdown("""
         background: rgba(209, 188, 255, 0.2);
     }
 
-    /* ============================================================
-       🎨 STATUS BAR
-       ============================================================ */
     .status-bar {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -316,9 +282,6 @@ st.markdown("""
     .status-item .value.green { color: #7df4ff; }
     .status-item .value.red { color: var(--accent-error); }
 
-    /* ============================================================
-       🎨 METRIC CARDS
-       ============================================================ */
     [data-testid="stMetric"] {
         background: var(--glass-bg) !important;
         backdrop-filter: blur(12px) !important;
@@ -352,9 +315,6 @@ st.markdown("""
         font-family: 'Inter', sans-serif !important;
     }
 
-    /* ============================================================
-       🎨 DATA FRAMES
-       ============================================================ */
     .stDataFrame {
         border: 1px solid var(--border-outline-variant) !important;
         border-radius: 12px !important;
@@ -373,9 +333,6 @@ st.markdown("""
         border-bottom: 1px solid var(--border-outline-variant) !important;
     }
 
-    /* ============================================================
-       🎨 EXPANDERS
-       ============================================================ */
     .streamlit-expanderHeader {
         background: var(--bg-surface-container) !important;
         border: 1px solid var(--border-outline-variant) !important;
@@ -396,9 +353,6 @@ st.markdown("""
         padding: 16px !important;
     }
 
-    /* ============================================================
-       🎨 ALERTAS
-       ============================================================ */
     .stAlert {
         border-radius: 12px !important;
         border: 1px solid var(--border-outline-variant) !important;
@@ -428,9 +382,6 @@ st.markdown("""
         color: var(--text-primary) !important;
     }
 
-    /* ============================================================
-       🎨 SPINNER
-       ============================================================ */
     .stSpinner > div {
         border-color: var(--accent-primary-fixed-dim) !important;
         border-top-color: transparent !important;
@@ -439,18 +390,12 @@ st.markdown("""
         height: 48px !important;
     }
 
-    /* ============================================================
-       🎨 DIVIDER
-       ============================================================ */
     hr {
         border-color: var(--border-outline-variant) !important;
         margin: 24px 0 !important;
         opacity: 0.5;
     }
 
-    /* ============================================================
-       🎨 PROBABILITY BARS
-       ============================================================ */
     .prob-bar {
         height: 6px;
         border-radius: 4px;
@@ -480,9 +425,6 @@ st.markdown("""
         100% { transform: translateX(100%); }
     }
 
-    /* ============================================================
-       🎨 DISCLAIMER
-       ============================================================ */
     .disclaimer-box {
         background: rgba(147, 0, 10, 0.15);
         border: 1px solid rgba(255, 180, 171, 0.2);
@@ -506,9 +448,6 @@ st.markdown("""
         margin-right: 6px;
     }
 
-    /* ============================================================
-       🎨 FOOTER
-       ============================================================ */
     .footer {
         text-align: center;
         padding: 24px 16px;
@@ -534,9 +473,6 @@ st.markdown("""
         margin: 0 8px;
     }
 
-    /* ============================================================
-       🎨 SCROLLBAR
-       ============================================================ */
     ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
@@ -553,19 +489,16 @@ st.markdown("""
         background: var(--accent-primary-fixed-dim);
     }
 
-    /* ============================================================
-       🎨 OCULTAR ELEMENTOS POR DEFECTO DE STREAMLIT
-       ============================================================ */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
     /* ============================================================
-       🎨 BOTÓN DE PREDICCIÓN EN SIDEBAR (Estilo especial)
+       🎨 BOTÓN DE PREDICCIÓN EN SIDEBAR - CIAN (reemplazado morado)
        ============================================================ */
     .predict-btn-container .stButton > button {
-        background: linear-gradient(135deg, #d1bcff, #7000ff) !important;
-        color: #ffffff !important;
+        background: linear-gradient(135deg, #00a8b5, #00dbe9) !important;
+        color: #0b1326 !important;
         font-weight: 700 !important;
         border: none !important;
         border-radius: 12px !important;
@@ -574,19 +507,16 @@ st.markdown("""
         letter-spacing: 1px;
         font-size: 0.85rem !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 4px 20px rgba(209, 188, 255, 0.3) !important;
+        box-shadow: 0 4px 20px rgba(0, 219, 233, 0.3) !important;
     }
     .predict-btn-container .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(209, 188, 255, 0.4) !important;
+        box-shadow: 0 8px 30px rgba(0, 219, 233, 0.4) !important;
     }
     .predict-btn-container .stButton > button:active {
         transform: scale(0.95);
     }
 
-    /* ============================================================
-       🎨 RESPONSIVE
-       ============================================================ */
     @media (max-width: 768px) {
         .title-bar { padding: 16px 20px; }
         .title-bar h1 { font-size: 1.5rem !important; }
@@ -607,9 +537,6 @@ st.markdown("""
         [data-testid="stMetric"] [data-testid="stMetricValue"] { font-size: 1.1rem !important; }
     }
 
-    /* ============================================================
-       🎨 MODAL OVERLAY (Para validación)
-       ============================================================ */
     .modal-overlay {
         position: fixed;
         top: 0;
@@ -706,7 +633,6 @@ st.markdown("""
         background: var(--accent-primary-fixed-dim);
     }
 
-    /* Estilo para el botón de cerrar en el modal */
     .modal-close-btn {
         background: rgba(255,255,255,0.05) !important;
         border: 1px solid var(--border-outline-variant) !important;
@@ -720,6 +646,43 @@ st.markdown("""
         border-color: var(--accent-primary-fixed-dim) !important;
         color: var(--text-primary) !important;
     }
+
+    .stSpinner {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 12px !important;
+    }
+    .stSpinner > div {
+        border-color: #00d4ff !important;
+        border-top-color: transparent !important;
+        border-width: 4px !important;
+        width: 48px !important;
+        height: 48px !important;
+        animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+        box-shadow: 0 0 30px rgba(0, 212, 255, 0.2) !important;
+    }
+    .stSpinner::after {
+        content: "⚙️ Entrenando modelo...";
+        color: #94a3b8;
+        font-size: 0.9rem;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+    .stSpinner {
+        animation: pulse-text 2s ease-in-out infinite !important;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    @keyframes pulse-text {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -732,62 +695,65 @@ def main():
     if raw is None:
         st.error("❌ No se pudieron cargar los datos.")
         st.stop()
-    
+
     fixture_data = data_loader.get_espn_fixture()
     wc_teams = data_loader.filter_world_cup_teams(raw)
-    
+
     ui.render_header()
     ui.render_status_bar()
     ui.render_disclaimer()
-    
+
     with st.sidebar:
         st.sidebar.header("⚙️ Configuración del Partido")
-        
+
         home_team, away_team, match_date, train_start = ui.render_match_selector(wc_teams)
-        
+
         st.markdown("---")
         st.subheader("🏟️ Configuración del Partido")
         neutral_venue = st.checkbox("🏟️ Partido en sede neutral", value=True)
-        
+
         st.markdown("---")
         st.subheader("🤖 Modelos a usar")
         use_bayesian = st.checkbox("🔵 Bayesiano (recomendado)", value=True)
         use_xgboost = st.checkbox("🟢 XGBoost (comparativo)", value=True)
-        
+
         st.markdown("---")
         st.subheader("🔧 Correcciones")
         use_dixon_coles, use_hydration = ui.render_corrections()
-        
+
         st.markdown("---")
         st.subheader("⚡ Ajustes Dinámicos")
         use_dynamic, underdog_scored_first, minuto_gol = ui.render_dynamic_adjustments()
         use_momentum, minuto_gol_favorito, llegadas_previas_h, llegadas_previas_a, marcador_actual_h, marcador_actual_a = ui.render_momentum_adjustments()
-        
+
         st.markdown("---")
         use_high_scoring = ui.render_high_scoring_adjustment()
-        
+
         # 🔥 NUEVO: Ajustes Contextuales
         use_contextual, minuto_primer_gol, marcador_actual_h_ctx, marcador_actual_a_ctx = ui.render_contextual_adjustments()
-        
+
+        # 🏆 Selector de fase del torneo
+        fase = ui.render_fase_selector()
+
         max_goals_display = st.slider("📊 Máximo de goles a mostrar", 4, 10, 7)
-        
+
         if fixture_data:
             with st.expander("📅 Fixture del Mundial 2026"):
                 fixture_df = pd.DataFrame(fixture_data)
                 fixture_df['date'] = fixture_df['date'].astype(str)
                 st.dataframe(fixture_df, hide_index=True, use_container_width=True)
-        
+
         st.markdown("---")
         predict_btn = st.button("🔮 Predecir", type="primary", use_container_width=True)
-        
+
         st.markdown("---")
         st.subheader("🔬 Validación del Modelo")
         if st.button("📊 Validar modelo", use_container_width=True):
             st.session_state.show_validation = True
-    
+
     if st.session_state.get('show_validation', False):
         validation.render_validation_modal(raw, corrections)
-    
+
     if predict_btn:
         results, errores, elo_h, elo_a = models.run_prediction(
             raw=raw,
@@ -817,9 +783,10 @@ def main():
             use_contextual=use_contextual,
             minuto_primer_gol=minuto_primer_gol,
             marcador_actual_h_ctx=marcador_actual_h_ctx,
-            marcador_actual_a_ctx=marcador_actual_a_ctx
+            marcador_actual_a_ctx=marcador_actual_a_ctx,
+            fase=fase
         )
-        
+
         if results:
             st.session_state.results = results
             st.session_state.elo = {'home': elo_h, 'away': elo_a}
@@ -828,16 +795,17 @@ def main():
                 st.warning(f"⚠️ Algunos fallaron: {', '.join(errores)}")
         else:
             st.error(f"❌ No se pudo completar. Errores: {', '.join(errores)}")
-    
+
     if 'results' in st.session_state:
         ui.render_results(
             st.session_state.results, 
             st.session_state.get('elo', {'home': 0, 'away': 0}),
-            config.DIXON_COLES_RHO
+            config.DIXON_COLES_RHO,
+            fase=fase
         )
-    
+
     ui.render_footer()
-    
+
     with st.expander("ℹ️ Información del modelo"):
         ui.render_system_info(len(wc_teams), raw)
 

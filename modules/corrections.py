@@ -232,8 +232,8 @@ def ajustar_por_gol_temprano_favorito(lam_h, lam_a, es_favorito_local, minuto_go
     """
     if minuto_gol <= 15:
         if es_favorito_local:
-            lam_h *= 1.30  # Aumentado de 1.20
-            lam_a *= 0.75  # Aumentado de 0.85
+            lam_h *= 1.30
+            lam_a *= 0.75
         else:
             lam_a *= 1.30
             lam_h *= 0.75
@@ -241,8 +241,8 @@ def ajustar_por_gol_temprano_favorito(lam_h, lam_a, es_favorito_local, minuto_go
     if marcador_actual is not None:
         diff = marcador_actual.get('home', 0) - marcador_actual.get('away', 0)
         if diff >= 2:
-            lam_h *= 1.15  # Aumentado de 1.10
-            lam_a *= 0.85  # Aumentado de 0.90
+            lam_h *= 1.15
+            lam_a *= 0.85
         elif diff <= -2:
             lam_a *= 1.15
             lam_h *= 0.85
@@ -255,7 +255,6 @@ def ajustar_por_partido_roto(lam_h, lam_a, goles_h, goles_a, minuto):
     """
     diff = abs(goles_h - goles_a)
     
-    # 🔥 NUEVO: Si la diferencia es de 4+ goles
     if diff >= 4 and minuto <= 45:
         if goles_h > goles_a:
             lam_h *= 1.35
@@ -264,11 +263,10 @@ def ajustar_por_partido_roto(lam_h, lam_a, goles_h, goles_a, minuto):
             lam_a *= 1.35
             lam_h *= 0.60
     
-    # Si la diferencia es de 3+ goles
     elif diff >= 3 and minuto <= 45:
         if goles_h > goles_a:
-            lam_h *= 1.25  # Aumentado de 1.15
-            lam_a *= 0.70  # Aumentado de 0.80
+            lam_h *= 1.25
+            lam_a *= 0.70
         else:
             lam_a *= 1.25
             lam_h *= 0.70
@@ -304,7 +302,6 @@ def ajuste_completo_contextual(lam_h, lam_a, home_team, away_team,
     """
     Combina todos los ajustes contextuales para partidos "rotos"
     """
-    # 🔥 NUEVO: Ajuste por diferencia de Elo
     if elo_h is not None and elo_a is not None:
         lam_h, lam_a = ajustar_por_diferencia_elo(lam_h, lam_a, elo_h, elo_a)
     
@@ -349,18 +346,16 @@ def calcular_resultado_proximal(score_matrix, lam_h, lam_a,
         'es_empate': False
     }
     
-    # 1. Resultado base (el más probable)
+    # 1. Resultado base
     flat_idx = np.argmax(score_matrix)
     base_h, base_a = np.unravel_index(flat_idx, score_matrix.shape)
     resultados['base'] = (base_h, base_a)
     
     # 2. Verificar si el empate es el resultado más probable
-    # Calcular probabilidades de 1X2
     home_win_prob = np.sum(np.tril(score_matrix, k=-1))
     draw_prob = np.sum(np.diag(score_matrix))
     away_win_prob = np.sum(np.triu(score_matrix, k=1))
     
-    # Si el empate es el resultado más probable, NO hacemos ajustes
     if draw_prob >= home_win_prob and draw_prob >= away_win_prob:
         resultados['proximal'] = resultados['base']
         resultados['es_empate'] = True
@@ -368,17 +363,14 @@ def calcular_resultado_proximal(score_matrix, lam_h, lam_a,
         resultados['partido_roto'] = resultados['base']
         return resultados
     
-    # 3. Si el underdog anotó primero, ajustar (solo si no es empate)
+    # 3. Si el underdog anotó primero
     if underdog_scored_first:
-        # Determinar quién es el underdog
         if es_favorito_local:
-            underdog_h = False  # El visitante es el underdog
+            underdog_h = False
         else:
-            underdog_h = True   # El local es el underdog
+            underdog_h = True
         
-        # Buscar el marcador más probable donde el underdog haya anotado
         if underdog_h:
-            # El underdog es local, buscar marcadores donde local >= 1
             if score_matrix.shape[0] > 1:
                 prob_underdog = score_matrix[1:, :]
                 if prob_underdog.size > 0:
@@ -390,7 +382,6 @@ def calcular_resultado_proximal(score_matrix, lam_h, lam_a,
             else:
                 resultados['underdog_first'] = resultados['base']
         else:
-            # El underdog es visitante, buscar marcadores donde visitante >= 1
             if score_matrix.shape[1] > 1:
                 prob_underdog = score_matrix[:, 1:]
                 if prob_underdog.size > 0:
@@ -402,23 +393,20 @@ def calcular_resultado_proximal(score_matrix, lam_h, lam_a,
             else:
                 resultados['underdog_first'] = resultados['base']
     
-    # 4. Si el partido está roto (solo si no es empate)
+    # 4. Si el partido está roto
     if partido_roto:
         diff = abs(marcador_actual_h - marcador_actual_a)
         
         if marcador_actual_h > marcador_actual_a:
-            # Local va ganando
             min_h = marcador_actual_h
             if min_h < score_matrix.shape[0]:
                 prob_roto = score_matrix[min_h:, :]
                 if prob_roto.size > 0:
                     flat_idx_roto = np.argmax(prob_roto)
                     r_h, r_a = np.unravel_index(flat_idx_roto, prob_roto.shape)
-                    # Asegurar que el marcador tenga al menos la diferencia actual
                     if (r_h + min_h) - r_a >= diff:
                         resultados['partido_roto'] = (r_h + min_h, r_a)
                     else:
-                        # Buscar el más cercano con la diferencia
                         for i in range(min_h, score_matrix.shape[0]):
                             for j in range(score_matrix.shape[1]):
                                 if i - j >= diff:
@@ -431,7 +419,6 @@ def calcular_resultado_proximal(score_matrix, lam_h, lam_a,
             else:
                 resultados['partido_roto'] = resultados['base']
         else:
-            # Visitante va ganando
             min_a = marcador_actual_a
             if min_a < score_matrix.shape[1]:
                 prob_roto = score_matrix[:, min_a:]
@@ -462,3 +449,59 @@ def calcular_resultado_proximal(score_matrix, lam_h, lam_a,
         resultados['proximal'] = resultados['base']
     
     return resultados
+
+# ============================================================================
+# AJUSTE POR FASE DEL TORNEO (NUEVO)
+# ============================================================================
+
+def ajuste_por_fase(lam_h, lam_a, fase):
+    """
+    Aplica ajustes específicos según la fase del torneo
+    """
+    fase_config = config.FASE_CONFIG.get(fase, config.FASE_CONFIG['Fase de Grupos'])
+    
+    # 1. Factor de goles
+    lam_h *= fase_config['factor_goles']
+    lam_a *= fase_config['factor_goles']
+    
+    # 2. Obtener nuevo rho para Dixon-Coles
+    nuevo_rho = fase_config['rho_dixon_coles']
+    
+    # 3. Factor de alta anotación
+    factor_high_scoring = fase_config['factor_high_scoring']
+    
+    return lam_h, lam_a, nuevo_rho, factor_high_scoring
+
+def ajustar_matriz_por_fase(score_matrix, lam_h, lam_a, fase, max_g=8):
+    """
+    Ajusta la matriz de marcadores según la fase del torneo
+    """
+    fase_config = config.FASE_CONFIG.get(fase, config.FASE_CONFIG['Fase de Grupos'])
+    
+    factor_goleadas = fase_config['factor_goleadas']
+    
+    ajuste = np.ones_like(score_matrix)
+    
+    for i in range(max_g + 1):
+        for j in range(max_g + 1):
+            if abs(i - j) >= 3:
+                ajuste[i, j] = factor_goleadas
+            elif abs(i - j) >= 2:
+                ajuste[i, j] = 1 - (1 - factor_goleadas) * 0.5
+    
+    score_matrix_ajustada = score_matrix * ajuste
+    suma = score_matrix_ajustada.sum()
+    if suma > 0:
+        score_matrix_ajustada = score_matrix_ajustada / suma
+    
+    return score_matrix_ajustada
+
+def get_fase_color(fase):
+    """Obtiene el color asociado a una fase"""
+    fase_config = config.FASE_CONFIG.get(fase, config.FASE_CONFIG['Fase de Grupos'])
+    return fase_config.get('color', '#22c55e')
+
+def get_fase_descripcion(fase):
+    """Obtiene la descripción de una fase"""
+    fase_config = config.FASE_CONFIG.get(fase, config.FASE_CONFIG['Fase de Grupos'])
+    return fase_config.get('descripcion', '')
