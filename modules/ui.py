@@ -9,6 +9,7 @@ import time
 
 from . import config
 from . import data_loader
+from . import corrections
 
 def render_header():
     """Renderiza el header de la aplicación"""
